@@ -1,0 +1,25 @@
+{
+  "name": "@presslyn/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "presslyn": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@presslyn/api": "workspace:*",
+    "@presslyn/core": "workspace:*",
+    "@presslyn/database": "workspace:*",
+    "commander": "^13.0.0"
+  },
+  "devDependencies": {
+    "@presslyn/config-ts": "workspace:*",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "presslyn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A modern CMS written in TypeScript — WordPress reimagined",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean",
+    "db:generate": "pnpm --filter @presslyn/database db:generate",
+    "db:migrate": "pnpm --filter @presslyn/database db:migrate",
+    "db:seed": "pnpm --filter @presslyn/database db:seed"
+  },
+  "keywords": [
+    "cms",
+    "typescript",
+    "wordpress-alternative",
+    "presslyn"
+  ],
+  "author": "Harish",
+  "license": "MIT",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "volta": {
+    "node": "20.20.2",
+    "pnpm": "10.32.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "turbo": "^2.9.6"
+  }
+}

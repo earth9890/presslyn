@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fbfbfa;
+  --foreground: #1a1a18;
+  --muted: #6b6b66;
+  --accent: #2f5d50;
+  --border: #e7e6e1;
+  --surface: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #14140f;
+    --foreground: #ececdf;
+    --muted: #9a9a8f;
+    --accent: #8fc7b4;
+    --border: #2a2a22;
+    --surface: #1b1b15;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-surface: var(--surface);
+  --font-serif: Georgia, "Times New Roman", serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Rendered post/page body — styles the HTML produced by the TipTap editor. */
+.prose-content {
+  line-height: 1.75;
+  font-size: 1.075rem;
+}
+.prose-content > * + * {
+  margin-top: 1.25rem;
+}
+.prose-content h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 2.5rem;
+}
+.prose-content h3 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-top: 2rem;
+}
+.prose-content a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-content ul,
+.prose-content ol {
+  padding-left: 1.5rem;
+}
+.prose-content ul {
+  list-style: disc;
+}
+.prose-content ol {
+  list-style: decimal;
+}
+.prose-content blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1.25rem;
+  font-style: italic;
+  color: var(--muted);
+}
+.prose-content pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+.prose-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+.prose-content img {
+  border-radius: 0.5rem;
+  max-width: 100%;
+  height: auto;
+}

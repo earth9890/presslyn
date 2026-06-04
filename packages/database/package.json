@@ -1,0 +1,42 @@
+{
+  "name": "@presslyn/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "import": "./dist/schema.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx src/seed.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "argon2": "^0.44.0",
+    "drizzle-orm": "^0.39.0",
+    "postgres": "^3.4.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@presslyn/config-ts": "workspace:*",
+    "@types/node": "^25.6.0",
+    "drizzle-kit": "^0.30.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

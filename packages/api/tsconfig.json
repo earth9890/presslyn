@@ -1,0 +1,8 @@
+{
+  "extends": "@presslyn/config-ts/tsconfig.node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@presslyn/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@presslyn/config-ts": "workspace:*",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,374 @@
+@import "tailwindcss";
+
+:root {
+  --presslyn-canvas: #eef2f7;
+  --presslyn-surface: #ffffff;
+  --presslyn-surface-muted: #f8fafc;
+  --presslyn-surface-strong: #0f172a;
+  --presslyn-surface-panel: #162033;
+  --presslyn-surface-panel-hover: #1d2b44;
+  --presslyn-surface-panel-active: #23324f;
+  --presslyn-border: #d6deea;
+  --presslyn-border-strong: #bfcbdd;
+  --presslyn-ink: #142033;
+  --presslyn-ink-soft: #52627a;
+  --presslyn-ink-muted: #7b8ba3;
+  --presslyn-sidebar-text: #d9e2f2;
+  --presslyn-sidebar-text-active: #ffffff;
+  --presslyn-sidebar-icon: #8aa1c8;
+  --presslyn-admin-bar: rgba(15, 23, 42, 0.94);
+  --presslyn-admin-bar-hover: rgba(37, 54, 82, 0.98);
+  --presslyn-admin-bar-text: #edf4ff;
+  --presslyn-admin-bar-text-active: #ffffff;
+  --presslyn-admin-bar-border: rgba(148, 163, 184, 0.22);
+  --presslyn-accent: #2563eb;
+  --presslyn-accent-hover: #1d4ed8;
+  --presslyn-accent-soft: #e7f0ff;
+  --presslyn-accent-glow: rgba(37, 99, 235, 0.16);
+  --presslyn-success: #0f9f6e;
+  --presslyn-danger: #d9485f;
+  --presslyn-warning: #d97706;
+  --presslyn-radius-sm: 0.7rem;
+  --presslyn-radius-md: 1rem;
+  --presslyn-radius-lg: 1.25rem;
+  --presslyn-shadow-soft: 0 18px 42px rgba(15, 23, 42, 0.08);
+}
+
+[data-admin-scheme="default"] {
+  --presslyn-accent: #2563eb;
+  --presslyn-accent-hover: #1d4ed8;
+  --presslyn-accent-soft: #e7f0ff;
+  --presslyn-accent-glow: rgba(37, 99, 235, 0.16);
+}
+
+[data-admin-scheme="blue"] {
+  --presslyn-accent: #0f6cbd;
+  --presslyn-accent-hover: #0b5a9e;
+  --presslyn-accent-soft: #e6f4ff;
+  --presslyn-accent-glow: rgba(15, 108, 189, 0.16);
+}
+
+[data-admin-scheme="coffee"] {
+  --presslyn-accent: #9a6c44;
+  --presslyn-accent-hover: #7e5431;
+  --presslyn-accent-soft: #f8eee6;
+  --presslyn-accent-glow: rgba(154, 108, 68, 0.16);
+}
+
+[data-admin-scheme="ectoplasm"] {
+  --presslyn-accent: #6e8f2a;
+  --presslyn-accent-hover: #5c7721;
+  --presslyn-accent-soft: #eff7df;
+  --presslyn-accent-glow: rgba(110, 143, 42, 0.16);
+}
+
+[data-admin-scheme="light"] {
+  --presslyn-canvas: #f7f9fc;
+  --presslyn-surface-panel: #e8edf5;
+  --presslyn-surface-panel-hover: #dde6f2;
+  --presslyn-surface-panel-active: #d1dceb;
+  --presslyn-sidebar-text: #243147;
+  --presslyn-sidebar-text-active: #0f172a;
+  --presslyn-sidebar-icon: #617089;
+  --presslyn-admin-bar: rgba(243, 247, 252, 0.96);
+  --presslyn-admin-bar-hover: rgba(228, 236, 246, 0.98);
+  --presslyn-admin-bar-text: #243147;
+  --presslyn-admin-bar-text-active: #0f172a;
+  --presslyn-admin-bar-border: rgba(36, 49, 71, 0.12);
+  --presslyn-accent: #0ea5b7;
+  --presslyn-accent-hover: #0b8795;
+  --presslyn-accent-soft: #e7fbfd;
+  --presslyn-accent-glow: rgba(14, 165, 183, 0.16);
+}
+
+[data-admin-scheme="midnight"] {
+  --presslyn-canvas: #101826;
+  --presslyn-surface: #162033;
+  --presslyn-surface-muted: #1b2941;
+  --presslyn-border: #263652;
+  --presslyn-border-strong: #314566;
+  --presslyn-ink: #eef5ff;
+  --presslyn-ink-soft: #b8c6dd;
+  --presslyn-ink-muted: #8ea0bc;
+  --presslyn-surface-panel: #0d1321;
+  --presslyn-surface-panel-hover: #172338;
+  --presslyn-surface-panel-active: #1c2a42;
+  --presslyn-sidebar-text: #dbe7fb;
+  --presslyn-sidebar-text-active: #ffffff;
+  --presslyn-sidebar-icon: #89a1c5;
+  --presslyn-accent: #f15c7a;
+  --presslyn-accent-hover: #dd4666;
+  --presslyn-accent-soft: rgba(241, 92, 122, 0.16);
+  --presslyn-accent-glow: rgba(241, 92, 122, 0.18);
+  --presslyn-success: #34c48d;
+  --presslyn-warning: #f4a329;
+}
+
+[data-admin-scheme="modern"] {
+  --presslyn-accent: #4f46e5;
+  --presslyn-accent-hover: #4338ca;
+  --presslyn-accent-soft: #eeedff;
+  --presslyn-accent-glow: rgba(79, 70, 229, 0.16);
+}
+
+[data-admin-scheme="ocean"] {
+  --presslyn-accent: #0f766e;
+  --presslyn-accent-hover: #0d5f59;
+  --presslyn-accent-soft: #e6f8f5;
+  --presslyn-accent-glow: rgba(15, 118, 110, 0.16);
+}
+
+[data-admin-scheme="sunrise"] {
+  --presslyn-accent: #dd6b20;
+  --presslyn-accent-hover: #c05621;
+  --presslyn-accent-soft: #fff0e4;
+  --presslyn-accent-glow: rgba(221, 107, 32, 0.16);
+}
+
+@theme {
+  --color-sidebar: var(--presslyn-surface-panel);
+  --color-sidebar-hover: var(--presslyn-surface-panel-hover);
+  --color-sidebar-active: var(--presslyn-surface-panel-active);
+  --color-sidebar-text: var(--presslyn-sidebar-text);
+  --color-sidebar-text-active: var(--presslyn-sidebar-text-active);
+  --color-sidebar-icon: var(--presslyn-sidebar-icon);
+  --color-admin-bar: var(--presslyn-admin-bar);
+  --color-admin-bar-hover: var(--presslyn-admin-bar-hover);
+  --color-admin-bar-text: var(--presslyn-admin-bar-text);
+  --color-admin-bar-text-active: var(--presslyn-admin-bar-text-active);
+  --color-admin-bar-border: var(--presslyn-admin-bar-border);
+  --color-admin-content: var(--presslyn-canvas);
+  --color-accent: var(--presslyn-accent);
+  --color-accent-hover: var(--presslyn-accent-hover);
+  --color-accent-soft: var(--presslyn-accent-soft);
+  --color-surface: var(--presslyn-surface);
+  --color-surface-raised: var(--presslyn-surface-muted);
+  --color-border: var(--presslyn-border);
+  --color-border-subtle: var(--presslyn-border-strong);
+  --color-text-primary: var(--presslyn-ink);
+  --color-text-secondary: var(--presslyn-ink-soft);
+  --color-text-muted: var(--presslyn-ink-muted);
+  --color-danger: var(--presslyn-danger);
+  --color-success: var(--presslyn-success);
+  --color-warning: var(--presslyn-warning);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    "Segoe UI", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--presslyn-ink);
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.05), transparent 22rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(238, 242, 247, 0.98));
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--presslyn-accent);
+}
+
+.admin-main-dense table th[class],
+.admin-main-dense table td[class] {
+  padding-top: 0.62rem !important;
+  padding-bottom: 0.62rem !important;
+}
+
+.admin-main-dense .group .opacity-0 {
+  opacity: 1;
+}
+
+.presslyn-editor-shell {
+  overflow: hidden;
+  border: 1px solid var(--presslyn-border);
+  border-radius: 1.15rem;
+  background: var(--presslyn-surface-muted);
+}
+
+.presslyn-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.9rem;
+  border-bottom: 1px solid var(--presslyn-border);
+  background: color-mix(in srgb, var(--presslyn-surface) 78%, var(--presslyn-accent-soft));
+}
+
+.presslyn-editor-tool {
+  border: 1px solid var(--presslyn-border);
+  border-radius: 999px;
+  background: var(--presslyn-surface);
+  color: var(--presslyn-ink-soft);
+  padding: 0.42rem 0.8rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.presslyn-editor-tool:hover {
+  color: var(--presslyn-ink);
+  border-color: color-mix(in srgb, var(--presslyn-accent) 35%, var(--presslyn-border));
+}
+
+.presslyn-editor-tool.is-active {
+  border-color: var(--presslyn-accent);
+  background: var(--presslyn-accent-soft);
+  color: var(--presslyn-accent-hover);
+}
+
+.presslyn-editor-tool:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.presslyn-editor-media-strip {
+  padding: 0.8rem 0.9rem 0;
+}
+
+.presslyn-editor-media-label {
+  display: block;
+  margin-bottom: 0.55rem;
+  font-size: 0.73rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--presslyn-ink-muted);
+}
+
+.presslyn-editor-media-list {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.presslyn-editor-media-button {
+  flex: 0 0 auto;
+  width: 4.6rem;
+  height: 4.6rem;
+  border: 1px solid var(--presslyn-border);
+  border-radius: 0.95rem;
+  overflow: hidden;
+  background: var(--presslyn-surface);
+}
+
+.presslyn-editor-media-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.presslyn-editor {
+  min-height: 22rem;
+  padding: 1.15rem;
+  color: var(--presslyn-ink);
+  line-height: 1.75;
+}
+
+.presslyn-editor.ProseMirror {
+  outline: none;
+}
+
+.presslyn-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--presslyn-ink-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.presslyn-editor h2,
+.presslyn-editor h3,
+.presslyn-editor h4 {
+  margin: 1.5rem 0 0.7rem;
+  line-height: 1.2;
+  color: var(--presslyn-ink);
+}
+
+.presslyn-editor h2 {
+  font-size: 1.6rem;
+}
+
+.presslyn-editor h3 {
+  font-size: 1.3rem;
+}
+
+.presslyn-editor h4 {
+  font-size: 1.1rem;
+}
+
+.presslyn-editor p,
+.presslyn-editor ul,
+.presslyn-editor ol,
+.presslyn-editor pre,
+.presslyn-editor blockquote {
+  margin: 0.8rem 0;
+}
+
+.presslyn-editor ul,
+.presslyn-editor ol {
+  padding-left: 1.4rem;
+}
+
+.presslyn-editor blockquote {
+  border-left: 3px solid color-mix(in srgb, var(--presslyn-accent) 45%, transparent);
+  margin-left: 0;
+  padding: 0.2rem 0 0.2rem 1rem;
+  color: var(--presslyn-ink-soft);
+  background: color-mix(in srgb, var(--presslyn-surface) 72%, var(--presslyn-accent-soft));
+  border-radius: 0.9rem;
+}
+
+.presslyn-editor pre {
+  overflow-x: auto;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+}
+
+.presslyn-editor code {
+  font-family:
+    "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", monospace;
+}
+
+.presslyn-editor img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 1rem 0;
+  border-radius: 1rem;
+}

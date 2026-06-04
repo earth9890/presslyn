@@ -1,0 +1,9 @@
+export { PluginManager } from "./plugin-manager.js";
+export {
+  PluginManifestSchema,
+  type PluginManifest,
+  type PluginContext,
+  type PluginDefinition,
+  type PluginInfo,
+  type PluginOptionStore,
+} from "./types.js";

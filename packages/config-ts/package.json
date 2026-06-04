@@ -1,0 +1,6 @@
+{
+  "name": "@presslyn/config-ts",
+  "version": "0.1.0",
+  "private": true,
+  "files": ["*.json"]
+}

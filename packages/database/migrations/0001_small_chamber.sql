@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "post_terms_pk_idx" ON "post_terms" USING btree ("post_id","term_id");

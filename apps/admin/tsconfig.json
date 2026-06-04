@@ -1,0 +1,20 @@
+{
+  "extends": "@presslyn/config-ts/tsconfig.nextjs.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "allowJs": true,
+    "noEmit": true
+  },
+  "include": [
+    "src",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
