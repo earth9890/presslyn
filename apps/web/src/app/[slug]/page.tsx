@@ -88,17 +88,24 @@ export default async function EntryPage({
   const author = details.authors[entry.id] ?? "";
   const terms = details.terms[entry.id] ?? { categories: [], tags: [] };
   const comments = commentsResult.comments;
-  const entryHeader = await renderThemeTemplate(
+  const templateContent = await renderThemeTemplate(
     theme,
     postType === "page" ? "page" : "single",
     {
       theme,
+      postId: entry.id,
+      postType,
       siteTitle: site.title,
       postTitle: entry.title || "(untitled)",
       postDate: postType === "post" ? formatDate(entry.publishedAt ?? entry.createdAt) : undefined,
       postDateIso:
         postType === "post" ? isoDate(entry.publishedAt ?? entry.createdAt) : undefined,
       postAuthor: postType === "post" ? author : undefined,
+      postContent: entry.content,
+      postCategories: terms.categories,
+      postTags: terms.tags,
+      comments: entry.commentStatus !== "closed" ? comments : undefined,
+      backHref: "/",
     }
   );
 
@@ -127,9 +134,9 @@ export default async function EntryPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className={template.frame === "card" ? "mb-10" : "mb-8"}>
-        {entryHeader ?? (
-          <>
+      {templateContent ?? (
+        <>
+          <header className={template.frame === "card" ? "mb-10" : "mb-8"}>
             {postType === "post" ? (
               <div
                 className={
@@ -158,67 +165,65 @@ export default async function EntryPage({
             >
               {entry.title || "(untitled)"}
             </h1>
-          </>
-        )}
-      </header>
+          </header>
 
-      {/* Post body — HTML authored by trusted editors via the block editor. */}
-      <div
-        className="prose-content"
-        dangerouslySetInnerHTML={{ __html: entry.content }}
-      />
+          <div
+            className="prose-content"
+            dangerouslySetInnerHTML={{ __html: entry.content }}
+          />
 
-      {postType === "post" && (terms.categories.length > 0 || terms.tags.length > 0) ? (
-        <footer className="mt-10 flex flex-wrap items-center gap-2 border-t border-border pt-6 text-sm">
-          {terms.categories.map((name) => (
-            <span
-              key={`c-${name}`}
-              className="rounded-full bg-surface px-3 py-1 text-muted"
-            >
-              {name}
-            </span>
-          ))}
-          {terms.tags.map((name) => (
-            <span key={`t-${name}`} className="text-muted">
-              #{name}
-            </span>
-          ))}
-        </footer>
-      ) : null}
+          {postType === "post" && (terms.categories.length > 0 || terms.tags.length > 0) ? (
+            <footer className="mt-10 flex flex-wrap items-center gap-2 border-t border-border pt-6 text-sm">
+              {terms.categories.map((name) => (
+                <span
+                  key={`c-${name}`}
+                  className="rounded-full bg-surface px-3 py-1 text-muted"
+                >
+                  {name}
+                </span>
+              ))}
+              {terms.tags.map((name) => (
+                <span key={`t-${name}`} className="text-muted">
+                  #{name}
+                </span>
+              ))}
+            </footer>
+          ) : null}
 
-      {/* Comments */}
-      {entry.commentStatus !== "closed" ? (
-        <section className="mt-12 border-t border-border pt-8">
-          <h2 className="font-serif text-2xl font-bold">
-            {comments.length === 0
-              ? "No comments yet"
-              : `${comments.length} comment${comments.length === 1 ? "" : "s"}`}
-          </h2>
-          <ul className="mt-6 space-y-6">
-            {comments.map((comment) => (
-              <li key={comment.id} className="border-b border-border pb-6 last:border-b-0">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-semibold">
-                    {comment.authorName || "Anonymous"}
-                  </span>
-                  <span className="text-muted">·</span>
-                  <time className="text-muted">{formatDate(comment.createdAt)}</time>
-                </div>
-                <p className="mt-2 whitespace-pre-line text-foreground/90">
-                  {comment.content}
-                </p>
-              </li>
-            ))}
-          </ul>
-          <CommentForm postId={entry.id} />
-        </section>
-      ) : null}
+          {entry.commentStatus !== "closed" ? (
+            <section className="mt-12 border-t border-border pt-8">
+              <h2 className="font-serif text-2xl font-bold">
+                {comments.length === 0
+                  ? "No comments yet"
+                  : `${comments.length} comment${comments.length === 1 ? "" : "s"}`}
+              </h2>
+              <ul className="mt-6 space-y-6">
+                {comments.map((comment) => (
+                  <li key={comment.id} className="border-b border-border pb-6 last:border-b-0">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-semibold">
+                        {comment.authorName || "Anonymous"}
+                      </span>
+                      <span className="text-muted">·</span>
+                      <time className="text-muted">{formatDate(comment.createdAt)}</time>
+                    </div>
+                    <p className="mt-2 whitespace-pre-line text-foreground/90">
+                      {comment.content}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <CommentForm postId={entry.id} />
+            </section>
+          ) : null}
 
-      <div className="mt-12">
-        <Link href="/" className="text-sm text-accent hover:underline">
-          ← Back to all posts
-        </Link>
-      </div>
+          <div className="mt-12">
+            <Link href="/" className="text-sm text-accent hover:underline">
+              ← Back to all posts
+            </Link>
+          </div>
+        </>
+      )}
     </article>
   );
 }

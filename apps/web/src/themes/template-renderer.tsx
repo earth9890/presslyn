@@ -6,7 +6,9 @@ import {
   parseBlockTemplate,
   type ParsedTemplateBlock,
 } from "@presslyn/core";
+import { CommentForm } from "@/components/comment-form";
 import { PostCard, type PostCardData } from "@/components/post-card";
+import { formatDate } from "@/lib/site";
 import type { PublicThemeDefinition } from "./public-theme";
 
 type TemplateName =
@@ -19,6 +21,8 @@ type TemplateName =
   | "page";
 
 interface TemplateContext {
+  postId?: number;
+  postType?: "post" | "page";
   theme: PublicThemeDefinition;
   cardStyle?: "minimal" | "feature";
   siteTitle: string;
@@ -31,11 +35,21 @@ interface TemplateContext {
   postDateIso?: string;
   postAuthor?: string;
   posts?: PostCardData[];
+  postContent?: string;
+  postCategories?: string[];
+  postTags?: string[];
+  comments?: Array<{
+    id: number;
+    authorName: string | null;
+    content: string;
+    createdAt: Date;
+  }>;
   emptyMessage?: string;
   page?: number;
   totalPages?: number;
   basePath?: string;
   extraQuery?: Record<string, string>;
+  backHref?: string;
 }
 
 const loadTemplateBlocks = cache(
@@ -305,6 +319,98 @@ function renderTemplateBlock(
         </nav>
       );
     }
+    case "post-content":
+      return context.postContent ? (
+        <div
+          key={key}
+          className={className ?? "prose-content"}
+          dangerouslySetInnerHTML={{ __html: context.postContent }}
+        />
+      ) : null;
+    case "post-terms": {
+      if (context.postType !== "post") {
+        return null;
+      }
+      const categories = context.postCategories ?? [];
+      const tags = context.postTags ?? [];
+      if (categories.length === 0 && tags.length === 0) {
+        return null;
+      }
+
+      return (
+        <footer
+          key={key}
+          className={
+            className ??
+            "mt-10 flex flex-wrap items-center gap-2 border-t border-border pt-6 text-sm"
+          }
+        >
+          {categories.map((name) => (
+            <span
+              key={`c-${name}`}
+              className="rounded-full bg-surface px-3 py-1 text-muted"
+            >
+              {name}
+            </span>
+          ))}
+          {tags.map((name) => (
+            <span key={`t-${name}`} className="text-muted">
+              #{name}
+            </span>
+          ))}
+        </footer>
+      );
+    }
+    case "comments-list": {
+      const comments = context.comments;
+      if (!comments) {
+        return null;
+      }
+
+      return (
+        <section
+          key={key}
+          className={className ?? "mt-12 border-t border-border pt-8"}
+        >
+          <h2 className="font-serif text-2xl font-bold">
+            {comments.length === 0
+              ? "No comments yet"
+              : `${comments.length} comment${comments.length === 1 ? "" : "s"}`}
+          </h2>
+          <ul className="mt-6 space-y-6">
+            {comments.map((comment) => (
+              <li
+                key={comment.id}
+                className="border-b border-border pb-6 last:border-b-0"
+              >
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-semibold">
+                    {comment.authorName || "Anonymous"}
+                  </span>
+                  <span className="text-muted">·</span>
+                  <time className="text-muted">
+                    {formatDate(comment.createdAt)}
+                  </time>
+                </div>
+                <p className="mt-2 whitespace-pre-line text-foreground/90">
+                  {comment.content}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      );
+    }
+    case "comment-form":
+      return context.postId ? <CommentForm key={key} postId={context.postId} /> : null;
+    case "back-link":
+      return context.backHref ? (
+        <div key={key} className={className ?? "mt-12"}>
+          <Link href={context.backHref} className="text-sm text-accent hover:underline">
+            ← Back to all posts
+          </Link>
+        </div>
+      ) : null;
     case "post-meta":
       return context.postDate ? (
         <div
