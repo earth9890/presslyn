@@ -11,9 +11,13 @@ import { renderThemeTemplate, renderThemeTemplatePart } from "@/themes/template-
 
 export const dynamic = "force-dynamic";
 
-const resolveTerm = cache(async (slug: string) => {
+const resolveTerm = cache(async (slug: string, siteId?: number) => {
   try {
-    return await services.taxonomy.getTermBySlug(slug, "post_tag");
+    return await services.taxonomy.getTermBySlug(
+      slug,
+      "post_tag",
+      siteId !== undefined ? { siteId } : undefined
+    );
   } catch {
     return null;
   }
@@ -25,7 +29,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const term = await resolveTerm(slug);
+  const resolvedSite = await getResolvedSite();
+  const term = await resolveTerm(slug, resolvedSite?.id);
   if (!term) return { title: "Tag not found" };
   return {
     title: `${term.name}`,
@@ -43,15 +48,15 @@ export default async function TagPage({
 }) {
   const { slug } = await params;
   const { page: pageParam } = await searchParams;
-  const term = await resolveTerm(slug);
+  const resolvedSite = await getResolvedSite();
+  const siteScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
+  const term = await resolveTerm(slug, resolvedSite?.id);
   if (!term) notFound();
 
-  const [site, theme, resolvedSite] = await Promise.all([
+  const [site, theme] = await Promise.all([
     getSiteSettings(),
     getActivePublicTheme(),
-    getResolvedSite(),
   ]);
-  const siteScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
   const template = getThemeTemplate(theme, "tag");
   const page = Math.max(1, Number(pageParam ?? 1));
   const limit = site.postsPerPage;

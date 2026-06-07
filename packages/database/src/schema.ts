@@ -124,6 +124,7 @@ export const terms = pgTable(
   "terms",
   {
     id: serial("id").primaryKey(),
+    siteId: integer("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
     taxonomyId: integer("taxonomy_id")
       .notNull()
       .references(() => taxonomies.id, { onDelete: "cascade" }),
@@ -134,8 +135,9 @@ export const terms = pgTable(
     meta: jsonb("meta").$type<Record<string, unknown>>().default({}),
   },
   (table) => [
+    index("terms_site_idx").on(table.siteId),
     index("terms_taxonomy_idx").on(table.taxonomyId),
-    uniqueIndex("terms_slug_taxonomy_idx").on(table.slug, table.taxonomyId),
+    uniqueIndex("terms_site_slug_taxonomy_idx").on(table.siteId, table.slug, table.taxonomyId),
     index("terms_parent_idx").on(table.parentId),
   ]
 );

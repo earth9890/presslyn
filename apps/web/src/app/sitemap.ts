@@ -42,8 +42,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [postRows, pageRows, categories, tags] = await Promise.all([
     allPublished("post", siteScope),
     allPublished("page", siteScope),
-    services.taxonomy.getTermsWithCounts("category").catch(() => []),
-    services.taxonomy.getTermsWithCounts("post_tag").catch(() => []),
+    services.taxonomy.getTermsWithCounts("category", siteScope).catch(() => []),
+    services.taxonomy.getTermsWithCounts("post_tag", siteScope).catch(() => []),
   ]);
 
   const entries: MetadataRoute.Sitemap = [

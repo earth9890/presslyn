@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { getSiteSettings } from "@/lib/site";
+import { getResolvedSite } from "@/lib/site";
 import { services } from "@/lib/services";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -43,7 +44,14 @@ export default async function RootLayout({
 }) {
   const [site, categories, theme] = await Promise.all([
     getSiteSettings(),
-    services.taxonomy.getTermsWithCounts("category").catch(() => []),
+    getResolvedSite().then((resolvedSite) =>
+      services.taxonomy
+        .getTermsWithCounts(
+          "category",
+          resolvedSite ? { siteId: resolvedSite.id } : undefined
+        )
+        .catch(() => [])
+    ),
     getActivePublicTheme(),
   ]);
 
