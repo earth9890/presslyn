@@ -12,3 +12,7 @@ export {
   type BlockRenderContext,
   type BlockDefinition,
 } from "./block-registry.js";
+export {
+  parseBlockTemplate,
+  type ParsedTemplateBlock,
+} from "./template-parser.js";

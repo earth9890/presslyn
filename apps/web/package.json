@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --port 3000",
+    "prebuild": "pnpm --filter @presslyn/core build && pnpm --filter @presslyn/database build && pnpm --filter @presslyn/api build && pnpm --filter @presslyn/ui build",
     "build": "next build",
     "start": "next start --port 3000",
     "lint": "next lint",

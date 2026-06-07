@@ -2,7 +2,7 @@
 
 **Started**: April 11, 2026
 **Current Phase**: Phase 4.1 + Phase 6.4 remaining
-**Tests**: 302 passing (21 test files)
+**Tests**: 305 passing (22 test files)
 **Build**: 7 packages, zero errors
 
 ---
@@ -91,7 +91,7 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 
 | # | Module | Status | Date | Notes |
 |---|--------|--------|------|-------|
-| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime plus a validated `theme.json`-style layer: bundled themes now ship parsed theme config (tokens, layout, template parts, template hierarchy, style-variation metadata), and the public site resolves templates for index/single/page/archive/category/tag/author/search/404 from the active theme. Appearance now changes both the public theme choice and the template chrome. Full block-template grammar rendering is still pending. |
+| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime plus a validated `theme.json`-style layer: bundled themes now ship parsed theme config (tokens, layout, template parts, template hierarchy, style-variation metadata), and the public site resolves templates for index/single/page/archive/category/tag/author/search/404 from the active theme. Appearance now changes both the public theme choice and the template chrome. Presslyn now also parses Gutenberg-style template markup and renders bundled theme parts for header/footer/404; broader block-template coverage is still pending. |
 | 4.2 | Default Theme | VALIDATED | Jun 4, 2026 | A clean editorial default theme baked into `apps/web`: serif headlines, light/dark via CSS variables, header with category nav + search, footer, `.prose-content` styling for editor-authored HTML. |
 | 4.3 | SEO | VALIDATED | Jun 4, 2026 | Per-page metadata + Open Graph via Next `generateMetadata` (site-level template, article metadata on posts), JSON-LD BlogPosting/WebPage structured data, dynamic `sitemap.xml` (posts/pages/categories/tags), RSS 2.0 `/feed`, and `robots.txt` that respects the `blog_public` option. |
 | 4.4 | Public Pages | VALIDATED | Jun 4, 2026 | Home (paginated latest posts), single post & page (`/[slug]`, post-then-page resolution, published-only, comment display), category/tag/author archives, search, and a 404 — all SSR from the core services. |
@@ -117,6 +117,13 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 ---
 
 ## Changelog
+
+### Jun 7, 2026 — Phase 4.1 progress: block template parser + theme-part rendering
+- Added a core `parseBlockTemplate` parser for Gutenberg-style `<!-- wp:* -->` grammar, including nested blocks, self-closing blocks, preserved inner HTML, and malformed-template validation. Exported it from `@presslyn/core` and covered it with 3 unit tests, bringing core coverage to **305 tests across 22 files**.
+- Bundled both public themes with actual template-part source files (`header.html`, `footer.html`, `404.html`) and added a web-side `template-renderer` that maps parsed blocks into React for the current public theme runtime.
+- Switched the public `SiteHeader`, `SiteFooter`, and `not-found` shell over to theme-part rendering so the active theme now controls real template markup instead of only branching through hardcoded TS components.
+- Added `prebuild` scripts to the admin and web apps so standalone app builds always rebuild the dependent workspace packages first, avoiding stale core/api artifacts during production builds.
+- Validation: `pnpm --filter @presslyn/core test` passes (305 tests / 22 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
 
 ### Jun 7, 2026 — Phase 5.3 complete + admin navigation feedback + dependency hardening
 - **Phase 5.3 — Block Registration**: added a core `BlockRegistry` with strict Zod-validated block manifests, default categories, custom category registration, block patterns, block styles, and optional async server-side renderers. Exported from `@presslyn/core`, wired into the shared `Services` container, and covered with 4 unit tests — **Phase 5 is now COMPLETE (3/3)**.

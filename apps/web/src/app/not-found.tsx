@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
+import { renderThemeTemplatePart } from "@/themes/template-renderer";
 
 export default async function NotFound() {
   const theme = await getActivePublicTheme();
   const template = getThemeTemplate(theme, "404");
+  const content = await renderThemeTemplatePart(theme, "404", {
+    siteTitle: "Presslyn",
+  });
 
   return (
     <div
@@ -14,10 +18,7 @@ export default async function NotFound() {
       }
     >
       <p className="font-serif text-6xl font-bold text-accent">404</p>
-      <h1 className="mt-4 font-serif text-2xl font-bold">Page not found</h1>
-      <p className="mt-2 text-muted">
-        The page you were looking for doesn’t exist or has been moved.
-      </p>
+      <div className="mt-4 space-y-3">{content}</div>
       <Link
         href="/"
         className="mt-6 inline-block rounded-md bg-accent px-5 py-2.5 font-medium text-background"

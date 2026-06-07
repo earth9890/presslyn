@@ -181,6 +181,8 @@ export {
   type BlockAttributes,
   type BlockRenderContext,
   type BlockDefinition,
+  parseBlockTemplate,
+  type ParsedTemplateBlock,
 } from "./blocks/index.js";
 
 // Themes
