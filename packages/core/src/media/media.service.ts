@@ -15,7 +15,7 @@
  * - Null byte rejection in filenames
  */
 
-import { eq, and, desc, asc, like, sql } from "drizzle-orm";
+import { eq, and, or, desc, asc, like, sql } from "drizzle-orm";
 import { type Database } from "@presslyn/database";
 import { media, sites } from "@presslyn/database";
 import sharp from "sharp";
@@ -546,7 +546,10 @@ export class MediaService {
     const conditions = [];
     if (!this.legacySingleSiteMode) conditions.push(eq(media.siteId, siteId));
     if (mimeType) conditions.push(eq(media.mimeType, mimeType));
-    if (search) conditions.push(like(media.title, `%${escapeLike(search)}%`));
+    if (search) {
+      const pattern = `%${escapeLike(search)}%`;
+      conditions.push(or(like(media.title, pattern), like(media.filename, pattern)));
+    }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
