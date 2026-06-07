@@ -3,6 +3,7 @@ import { services } from "@/lib/services";
 import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { ArchiveList } from "@/components/archive-list";
+import { getActivePublicTheme } from "@/themes/public-theme";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,10 @@ export default async function SearchPage({
 }) {
   const { q, page: pageParam } = await searchParams;
   const query = (q ?? "").trim();
-  const site = await getSiteSettings();
+  const [site, theme] = await Promise.all([
+    getSiteSettings(),
+    getActivePublicTheme(),
+  ]);
   const page = Math.max(1, Number(pageParam ?? 1));
   const limit = site.postsPerPage;
 
@@ -36,7 +40,15 @@ export default async function SearchPage({
 
   return (
     <div className="space-y-8">
-      <form action="/search" method="GET" className="border-b border-border pb-6">
+      <form
+        action="/search"
+        method="GET"
+        className={
+          theme.variant === "ink"
+            ? "rounded-[1.8rem] border border-border bg-surface px-6 py-7"
+            : "border-b border-border pb-6"
+        }
+      >
         <label htmlFor="q" className="font-serif text-3xl font-bold">
           Search
         </label>
@@ -62,6 +74,7 @@ export default async function SearchPage({
           title={`Results for “${query}”`}
           description={`${result.total} result${result.total === 1 ? "" : "s"}`}
           posts={await toPostCards(result.posts)}
+          variant={theme.variant}
           page={page}
           totalPages={Math.max(1, Math.ceil(result.total / limit))}
           basePath="/search"

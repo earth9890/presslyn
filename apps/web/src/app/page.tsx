@@ -3,6 +3,7 @@ import { services } from "@/lib/services";
 import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { PostCard } from "@/components/post-card";
+import { getActivePublicTheme } from "@/themes/public-theme";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,10 @@ export default async function HomePage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const { page: pageParam } = await searchParams;
-  const site = await getSiteSettings();
+  const [site, theme] = await Promise.all([
+    getSiteSettings(),
+    getActivePublicTheme(),
+  ]);
   const page = Math.max(1, Number(pageParam ?? 1));
   const limit = site.postsPerPage;
   const offset = (page - 1) * limit;
@@ -40,8 +44,21 @@ export default async function HomePage({
 
   return (
     <div className="space-y-8">
+      {theme.variant === "ink" ? (
+        <section className="rounded-[1.8rem] border border-border bg-surface px-6 py-7">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+            Active theme
+          </p>
+          <h1 className="mt-2 font-serif text-4xl font-bold leading-tight text-foreground">
+            {site.title}
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+            Latest stories rendered through the {theme.name} public theme layer.
+          </p>
+        </section>
+      ) : null}
       {cards.map((post) => (
-        <PostCard key={post.slug} post={post} />
+        <PostCard key={post.slug} post={post} variant={theme.variant} />
       ))}
 
       {totalPages > 1 ? (

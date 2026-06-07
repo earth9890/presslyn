@@ -91,7 +91,7 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 
 | # | Module | Status | Date | Notes |
 |---|--------|--------|------|-------|
-| 4.1 | Theme System | Not Started | | Pluggable theme.json registry + block-grammar rendering. The public site currently ships a single baked-in default theme; the swappable theme engine is still ahead. |
+| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime: the web app now resolves the active theme from `active_theme`, maps it through a theme registry, and renders shared layout/content surfaces through theme variants. Shipped a second bundled theme (`Presslyn Ink`) so Appearance changes the public frontend for real. `theme.json` parsing and block-template grammar rendering are still pending. |
 | 4.2 | Default Theme | VALIDATED | Jun 4, 2026 | A clean editorial default theme baked into `apps/web`: serif headlines, light/dark via CSS variables, header with category nav + search, footer, `.prose-content` styling for editor-authored HTML. |
 | 4.3 | SEO | VALIDATED | Jun 4, 2026 | Per-page metadata + Open Graph via Next `generateMetadata` (site-level template, article metadata on posts), JSON-LD BlogPosting/WebPage structured data, dynamic `sitemap.xml` (posts/pages/categories/tags), RSS 2.0 `/feed`, and `robots.txt` that respects the `blog_public` option. |
 | 4.4 | Public Pages | VALIDATED | Jun 4, 2026 | Home (paginated latest posts), single post & page (`/[slug]`, post-then-page resolution, published-only, comment display), category/tag/author archives, search, and a 404 — all SSR from the core services. |
@@ -123,6 +123,11 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 - **Admin perceived performance**: added a client-side admin navigation layer that prefetches routes, shows an immediate top-of-screen progress state during route transitions and refreshes, and upgraded the route `loading.tsx` into a fuller skeleton/loading surface. Wired this through the sidebar, topbar, primary actions, Plugins actions, and Theme activation so slow pages finally show feedback instead of silently hanging.
 - **Dependency/security hardening**: upgraded the audited stack (`next`, `hono`, `nodemailer`, `drizzle-orm`, `fast-xml-parser`, `vitest`, `turbo`, `drizzle-kit`, `typescript-eslint`) and added root `pnpm` overrides for the remaining transitive advisory packages (`brace-expansion`, `esbuild`, `postcss`). Reinstalled and revalidated the workspace cleanly.
 - Validation: `pnpm audit` clean, `pnpm typecheck` passes, `pnpm --filter @presslyn/core test` passes (300 tests / 20 files), `pnpm --filter @presslyn/admin build` passes, `pnpm --filter @presslyn/web build` passes.
+
+### Jun 7, 2026 — Phase 4.1 progress: active public theme switching
+- Replaced the previously baked-in public look with a real web-theme registry in `apps/web`, keyed off the core `active_theme` option via `services.themes.getActiveId()`.
+- Added a second bundled public theme, **Presslyn Ink**, and routed the shared header, footer, home listing, archive lists, search, and single-entry pages through theme variants so the Appearance screen now changes the public site, not just stored metadata.
+- Validation: `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
 
 ### Jun 4, 2026 — Phase 5.2 + 3.9: Theme manager + Appearance (Phase 3 COMPLETE)
 - Core `ThemeManager` mirroring the plugin pattern: manifest schema, register, list, getActive, activate (persists `active_theme`, fires `switch_theme` with old/new). 4 unit tests — 296 core tests total.

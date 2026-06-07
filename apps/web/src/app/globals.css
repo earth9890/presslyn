@@ -20,6 +20,26 @@
   }
 }
 
+html[data-site-theme="presslyn-ink"] {
+  --background: #f3efe7;
+  --foreground: #171717;
+  --muted: #6d6257;
+  --accent: #8b3d2d;
+  --border: #d9cfbf;
+  --surface: #fffdf9;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-site-theme="presslyn-ink"] {
+    --background: #161311;
+    --foreground: #f3ede5;
+    --muted: #b4a89d;
+    --accent: #e28b73;
+    --border: #342b24;
+    --surface: #1d1814;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -35,6 +55,17 @@ body {
   color: var(--foreground);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+.presslyn-theme-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 14%, transparent), transparent 18rem),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 86%, transparent), transparent 22rem);
+}
+
+.presslyn-theme-frame {
+  min-height: 100%;
 }
 
 /* Rendered post/page body — styles the HTML produced by the TipTap editor. */

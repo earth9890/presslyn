@@ -4,6 +4,7 @@ import { getSiteSettings } from "@/lib/site";
 import { services } from "@/lib/services";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { getActivePublicTheme } from "@/themes/public-theme";
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getSiteSettings();
@@ -35,9 +36,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [site, categories] = await Promise.all([
+  const [site, categories, theme] = await Promise.all([
     getSiteSettings(),
     services.taxonomy.getTermsWithCounts("category").catch(() => []),
+    getActivePublicTheme(),
   ]);
 
   const navCategories = categories
@@ -45,17 +47,20 @@ export default async function RootLayout({
     .map((c) => ({ slug: c.slug, name: c.name }));
 
   return (
-    <html lang={site.language}>
-      <body className="flex min-h-screen flex-col">
+    <html lang={site.language} data-site-theme={theme.id}>
+      <body className={`flex min-h-screen flex-col ${theme.bodyClassName}`}>
+        <div className={theme.shellClassName}>
         <SiteHeader
           title={site.title}
           description={site.description}
           categories={navCategories}
+          variant={theme.variant}
         />
-        <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-          {children}
+        <main className={theme.mainClassName}>
+          <div className={theme.contentClassName}>{children}</div>
         </main>
-        <SiteFooter title={site.title} />
+        <SiteFooter title={site.title} variant={theme.variant} />
+        </div>
       </body>
     </html>
   );

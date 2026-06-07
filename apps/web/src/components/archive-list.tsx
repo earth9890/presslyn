@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PostCard, type PostCardData } from "./post-card";
+import type { PublicThemeVariant } from "@/themes/public-theme";
 
 interface ArchiveListProps {
   title: string;
@@ -12,6 +13,7 @@ interface ArchiveListProps {
   /** Extra query params to preserve in pagination links (e.g. search q). */
   extraQuery?: Record<string, string>;
   emptyMessage?: string;
+  variant: PublicThemeVariant;
 }
 
 function pageHref(
@@ -34,11 +36,26 @@ export function ArchiveList({
   basePath,
   extraQuery,
   emptyMessage = "No posts found.",
+  variant,
 }: ArchiveListProps) {
   return (
     <div>
-      <header className="mb-8 border-b border-border pb-6">
-        <h1 className="font-serif text-3xl font-bold">{title}</h1>
+      <header
+        className={
+          variant === "ink"
+            ? "mb-8 rounded-[1.8rem] border border-border bg-surface px-6 py-7"
+            : "mb-8 border-b border-border pb-6"
+        }
+      >
+        <h1
+          className={
+            variant === "ink"
+              ? "font-serif text-4xl font-bold leading-tight"
+              : "font-serif text-3xl font-bold"
+          }
+        >
+          {title}
+        </h1>
         {description ? <p className="mt-2 text-muted">{description}</p> : null}
       </header>
 
@@ -47,13 +64,19 @@ export function ArchiveList({
       ) : (
         <div className="space-y-8">
           {posts.map((post) => (
-            <PostCard key={post.slug} post={post} />
+            <PostCard key={post.slug} post={post} variant={variant} />
           ))}
         </div>
       )}
 
       {totalPages > 1 ? (
-        <nav className="mt-10 flex items-center justify-between border-t border-border pt-6 text-sm">
+        <nav
+          className={
+            variant === "ink"
+              ? "mt-10 flex items-center justify-between border-t border-border pt-6 text-sm"
+              : "mt-10 flex items-center justify-between border-t border-border pt-6 text-sm"
+          }
+        >
           {page > 1 ? (
             <Link
               href={pageHref(basePath, page - 1, extraQuery)}

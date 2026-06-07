@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { services } from "@/lib/services";
 import { formatDate, isoDate, excerptFrom, getSiteSettings } from "@/lib/site";
+import { getActivePublicTheme } from "@/themes/public-theme";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,10 @@ export default async function EntryPage({
   if (!resolved) notFound();
 
   const { entry, postType } = resolved;
-  const site = await getSiteSettings();
+  const [site, theme] = await Promise.all([
+    getSiteSettings(),
+    getActivePublicTheme(),
+  ]);
 
   const [details, commentsResult] = await Promise.all([
     services.content.getListDetails([entry.id]),
@@ -95,15 +99,27 @@ export default async function EntryPage({
   };
 
   return (
-    <article>
+    <article
+      className={
+        theme.variant === "ink"
+          ? "rounded-[1.9rem] border border-border bg-surface px-6 py-7 shadow-[0_18px_42px_rgba(17,24,39,0.06)] sm:px-8 sm:py-8"
+          : ""
+      }
+    >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className="mb-8">
+      <header className={theme.variant === "ink" ? "mb-10" : "mb-8"}>
         {postType === "post" ? (
-          <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-muted">
+          <div
+            className={
+              theme.variant === "ink"
+                ? "flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted"
+                : "flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-muted"
+            }
+          >
             <time dateTime={isoDate(entry.publishedAt ?? entry.createdAt)}>
               {formatDate(entry.publishedAt ?? entry.createdAt)}
             </time>
@@ -115,7 +131,13 @@ export default async function EntryPage({
             ) : null}
           </div>
         ) : null}
-        <h1 className="mt-2 font-serif text-4xl font-bold leading-tight">
+        <h1
+          className={
+            theme.variant === "ink"
+              ? "mt-3 font-serif text-5xl font-bold leading-[1.05]"
+              : "mt-2 font-serif text-4xl font-bold leading-tight"
+          }
+        >
           {entry.title || "(untitled)"}
         </h1>
       </header>

@@ -5,6 +5,7 @@ import { services } from "@/lib/services";
 import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { ArchiveList } from "@/components/archive-list";
+import { getActivePublicTheme } from "@/themes/public-theme";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,10 @@ export default async function CategoryPage({
   const term = await resolveTerm(slug);
   if (!term) notFound();
 
-  const site = await getSiteSettings();
+  const [site, theme] = await Promise.all([
+    getSiteSettings(),
+    getActivePublicTheme(),
+  ]);
   const page = Math.max(1, Number(pageParam ?? 1));
   const limit = site.postsPerPage;
 
@@ -62,6 +66,7 @@ export default async function CategoryPage({
       title={`Category: ${term.name}`}
       description={term.description || undefined}
       posts={await toPostCards(posts)}
+      variant={theme.variant}
       page={page}
       totalPages={Math.max(1, Math.ceil(total / limit))}
       basePath={`/category/${term.slug}`}
