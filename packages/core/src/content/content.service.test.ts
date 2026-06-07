@@ -7,9 +7,16 @@ vi.mock("drizzle-orm", () => ({
     (...predicates: Array<(row: Record<string, unknown>) => boolean>) =>
     (row: Record<string, unknown>) =>
       predicates.every((predicate) => predicate(row)),
+  or:
+    (...predicates: Array<((row: Record<string, unknown>) => boolean) | undefined>) =>
+    (row: Record<string, unknown>) =>
+      predicates.filter(Boolean).some((predicate) => predicate!(row)),
   desc: () => "desc",
   asc: () => "asc",
-  like: () => () => true,
+  like: (field: string, pattern: string) => {
+    const needle = pattern.replace(/^%|%$/g, "").toLowerCase();
+    return (row: Record<string, unknown>) => String(row[field] ?? "").toLowerCase().includes(needle);
+  },
   inArray: () => () => true,
   isNull: (field: string) => (row: Record<string, unknown>) => row[field] == null,
   sql: <T>(strings: TemplateStringsArray, ...values: unknown[]) =>
@@ -191,5 +198,79 @@ describe("ContentService multisite scoping", () => {
     );
 
     expect(created.slug).toBe("hello-world");
+  });
+});
+
+// Tailored mock supporting the queryPosts() chain
+// (selectDistinct → leftJoin → where → orderBy → limit → offset, plus count).
+function createQueryDb(rows: PostRow[]) {
+  const filtered = (predicate: (row: PostRow) => boolean) => rows.filter(predicate);
+
+  return {
+    selectDistinct: vi.fn(() => ({
+      from: vi.fn(() => ({
+        leftJoin: vi.fn(() => ({
+          where: vi.fn((predicate: (row: PostRow) => boolean) => ({
+            orderBy: vi.fn(() => ({
+              limit: vi.fn(() => ({
+                offset: vi.fn(async () => filtered(predicate).map((post) => ({ post }))),
+              })),
+            })),
+          })),
+        })),
+      })),
+    })),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        leftJoin: vi.fn(() => ({
+          where: vi.fn(async (predicate: (row: PostRow) => boolean) => [
+            { count: filtered(predicate).length },
+          ]),
+        })),
+      })),
+    })),
+  } as never;
+}
+
+describe("ContentService search", () => {
+  let service: ContentService;
+
+  beforeEach(() => {
+    const base = {
+      siteId: 1,
+      authorId: 1,
+      postType: "post",
+      excerpt: "",
+      status: "publish" as const,
+      commentStatus: "open" as const,
+      parentId: null,
+      menuOrder: 0,
+      meta: {},
+      publishedAt: new Date("2026-06-07T00:00:00.000Z"),
+      createdAt: new Date("2026-06-07T00:00:00.000Z"),
+      updatedAt: new Date("2026-06-07T00:00:00.000Z"),
+    };
+    service = new ContentService(
+      createQueryDb([
+        { ...base, id: 1, title: "Release notes", slug: "p1", content: "the dashboard got faster" },
+        { ...base, id: 2, title: "Dashboard tips", slug: "p2", content: "some tips" },
+      ])
+    );
+  });
+
+  it("matches the search term against post content, not just the title", async () => {
+    // "faster" appears only in post 1's content, not its title
+    const result = await service.queryPosts({ search: "faster" }, { siteId: 1 });
+
+    expect(result.total).toBe(1);
+    expect(result.posts[0]?.id).toBe(1);
+  });
+
+  it("still matches the search term against the title", async () => {
+    // "Release" appears only in post 1's title
+    const result = await service.queryPosts({ search: "Release" }, { siteId: 1 });
+
+    expect(result.total).toBe(1);
+    expect(result.posts[0]?.id).toBe(1);
   });
 });
