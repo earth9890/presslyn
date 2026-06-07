@@ -139,6 +139,7 @@ export {
   type UploadMediaInput,
   type UpdateMediaInput,
   type MediaQueryOptions,
+  type MediaScope,
   type StorageAdapter,
   registerImageSize,
   getImageSize,

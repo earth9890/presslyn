@@ -165,6 +165,7 @@ export const media = pgTable(
   "media",
   {
     id: serial("id").primaryKey(),
+    siteId: integer("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
     uploaderId: integer("uploader_id")
       .notNull()
       .references(() => users.id),
@@ -180,7 +181,9 @@ export const media = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
+    index("media_site_idx").on(table.siteId),
     index("media_uploader_idx").on(table.uploaderId),
+    index("media_site_created_at_idx").on(table.siteId, table.createdAt),
     index("media_mime_idx").on(table.mimeType),
   ]
 );

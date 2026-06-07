@@ -17,7 +17,7 @@
 
 import { eq, and, desc, asc, like, sql } from "drizzle-orm";
 import { type Database } from "@presslyn/database";
-import { media } from "@presslyn/database";
+import { media, sites } from "@presslyn/database";
 import sharp from "sharp";
 import { fileTypeFromBuffer } from "file-type";
 import { randomUUID } from "crypto";
@@ -76,6 +76,7 @@ const MediaQuerySchema = z
 // ─── Types ─────────────────────────────────────────────────
 
 export interface UploadMediaInput {
+  siteId?: number;
   uploaderId: number;
   filename: string;
   mimeType: string;
@@ -98,6 +99,12 @@ export interface MediaQueryOptions {
   limit?: number;
   offset?: number;
 }
+
+export interface MediaScope {
+  siteId?: number;
+}
+
+type MediaRow = typeof media.$inferSelect;
 
 // ─── Allowed MIME Types ────────────────────────────────────
 
@@ -153,6 +160,8 @@ const MIME_TO_EXTENSIONS: Record<string, string[]> = {
 
 export class MediaService {
   private maxFileSize: number;
+  private primarySiteId: number | null = null;
+  private legacySingleSiteMode = false;
 
   constructor(
     private db: Database,
@@ -162,6 +171,85 @@ export class MediaService {
     this.maxFileSize = maxFileSize;
   }
 
+  private isMissingMultisiteSchemaError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const causeMessage =
+      error instanceof Error && error.cause
+        ? error.cause instanceof Error
+          ? error.cause.message
+          : String(error.cause)
+        : "";
+    const text = `${message}\n${causeMessage}`;
+    return (
+      text.includes('relation "sites" does not exist') ||
+      text.includes('column "site_id" does not exist')
+    );
+  }
+
+  private async getPrimarySiteId(): Promise<number> {
+    if (this.legacySingleSiteMode) return 1;
+    if (this.primarySiteId !== null) return this.primarySiteId;
+
+    let primary;
+    try {
+      [primary] = await this.db
+        .select({ id: sites.id })
+        .from(sites)
+        .where(eq(sites.isPrimary, true))
+        .limit(1);
+    } catch (error) {
+      if (this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return 1;
+      }
+      throw error;
+    }
+
+    if (!primary) {
+      throw new Error("Primary site is not configured");
+    }
+
+    this.primarySiteId = primary.id;
+    return primary.id;
+  }
+
+  private async resolveSiteId(
+    input?: { siteId?: number } | undefined,
+    scope?: MediaScope
+  ): Promise<number> {
+    if (scope?.siteId !== undefined) return scope.siteId;
+    if (input?.siteId !== undefined) return input.siteId;
+    return this.getPrimarySiteId();
+  }
+
+  private selectLegacyMedia() {
+    return this.db.select({
+      id: media.id,
+      siteId: sql<number>`1`,
+      uploaderId: media.uploaderId,
+      filename: media.filename,
+      mimeType: media.mimeType,
+      fileSize: media.fileSize,
+      url: media.url,
+      alt: media.alt,
+      title: media.title,
+      width: media.width,
+      height: media.height,
+      meta: media.meta,
+      createdAt: media.createdAt,
+    });
+  }
+
+  private async cleanupStoredFiles(
+    filepath: string,
+    thumbnails: Record<string, { filepath: string; url: string }>
+  ): Promise<void> {
+    await Promise.allSettled([
+      this.storage.delete(filepath),
+      ...Object.values(thumbnails).map((thumb) => this.storage.delete(thumb.filepath)),
+    ]);
+  }
+
   /**
    * Upload a media file.
    *
@@ -169,8 +257,9 @@ export class MediaService {
    * checks image dimensions, generates unique filenames, and rejects SVGs.
    * For images, generates all registered thumbnail sizes using Sharp.
    */
-  async upload(input: UploadMediaInput) {
-    const parsed = UploadMediaSchema.parse(input);
+  async upload(input: UploadMediaInput, scope?: MediaScope): Promise<MediaRow> {
+    const { siteId: _siteId, ...inputWithoutSiteId } = input;
+    const parsed = UploadMediaSchema.parse(inputWithoutSiteId);
 
     // ── File size check ──────────────────────────────────
     if (parsed.buffer.length > this.maxFileSize) {
@@ -273,21 +362,50 @@ export class MediaService {
     }
 
     // ── Save to database ─────────────────────────────────
-    const [record] = await this.db
-      .insert(media)
-      .values({
-        uploaderId: parsed.uploaderId,
-        filename: uniqueName,
-        mimeType: parsed.mimeType,
-        fileSize: parsed.buffer.length,
-        url,
-        alt: parsed.alt ?? "",
-        title: parsed.title ?? safeBase,
-        width,
-        height,
-        meta: { filepath, thumbnails },
-      })
-      .returning();
+    const siteId = await this.resolveSiteId(input, scope);
+    const values = {
+      siteId,
+      uploaderId: parsed.uploaderId,
+      filename: uniqueName,
+      mimeType: parsed.mimeType,
+      fileSize: parsed.buffer.length,
+      url,
+      alt: parsed.alt ?? "",
+      title: parsed.title ?? safeBase,
+      width,
+      height,
+      meta: { filepath, thumbnails },
+    };
+
+    let record;
+    try {
+      [record] = await this.db
+        .insert(media)
+        .values(
+          this.legacySingleSiteMode
+            ? ({
+                uploaderId: parsed.uploaderId,
+                filename: uniqueName,
+                mimeType: parsed.mimeType,
+                fileSize: parsed.buffer.length,
+                url,
+                alt: parsed.alt ?? "",
+                title: parsed.title ?? safeBase,
+                width,
+                height,
+                meta: { filepath, thumbnails },
+              } as never)
+            : values
+        )
+        .returning();
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        await this.cleanupStoredFiles(filepath, thumbnails);
+        return this.upload(input, scope);
+      }
+      throw error;
+    }
 
     await hooks.doAction("upload_media", record);
     return record;
@@ -296,12 +414,25 @@ export class MediaService {
   /**
    * Get a single media record by ID.
    */
-  async getById(id: number) {
-    const [record] = await this.db
-      .select()
-      .from(media)
-      .where(eq(media.id, id))
-      .limit(1);
+  async getById(id: number, scope?: MediaScope): Promise<MediaRow> {
+    const siteId = await this.resolveSiteId(undefined, scope);
+    let record;
+    try {
+      [record] = this.legacySingleSiteMode
+        ? await this.selectLegacyMedia().from(media).where(eq(media.id, id)).limit(1)
+        : await this.db
+            .select()
+            .from(media)
+            .where(and(eq(media.id, id), eq(media.siteId, siteId)))
+            .limit(1);
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        [record] = await this.selectLegacyMedia().from(media).where(eq(media.id, id)).limit(1);
+      } else {
+        throw error;
+      }
+    }
 
     if (!record) throw new NotFoundError("Media", id);
     return record;
@@ -313,9 +444,9 @@ export class MediaService {
    * System metadata (filepath, thumbnails) is protected and cannot be
    * overwritten by users — these keys are stripped from incoming meta.
    */
-  async update(id: number, input: UpdateMediaInput) {
+  async update(id: number, input: UpdateMediaInput, scope?: MediaScope): Promise<MediaRow> {
     const parsed = UpdateMediaSchema.parse(input);
-    const existing = await this.getById(id);
+    const existing = await this.getById(id, scope);
 
     const updates: Record<string, unknown> = {};
     if (parsed.alt !== undefined) updates.alt = parsed.alt;
@@ -337,7 +468,11 @@ export class MediaService {
     const [updated] = await this.db
       .update(media)
       .set(updates)
-      .where(eq(media.id, id))
+      .where(
+        this.legacySingleSiteMode
+          ? eq(media.id, id)
+          : and(eq(media.id, id), eq(media.siteId, existing.siteId))
+      )
       .returning();
 
     return updated;
@@ -350,13 +485,19 @@ export class MediaService {
    * If file deletion fails, it's logged but doesn't block — a background
    * job can clean up orphaned files later.
    */
-  async delete(id: number) {
-    const record = await this.getById(id);
+  async delete(id: number, scope?: MediaScope) {
+    const record = await this.getById(id, scope);
 
     await hooks.doAction("before_delete_media", record);
 
     // Delete DB record first — this is the source of truth
-    await this.db.delete(media).where(eq(media.id, id));
+    await this.db
+      .delete(media)
+      .where(
+        this.legacySingleSiteMode
+          ? eq(media.id, id)
+          : and(eq(media.id, id), eq(media.siteId, record.siteId))
+      );
 
     // Then clean up storage (best-effort)
     const meta = record.meta as Record<string, unknown> | null;
@@ -385,8 +526,12 @@ export class MediaService {
   /**
    * Query media with filtering, ordering, and pagination.
    */
-  async query(opts: MediaQueryOptions = {}) {
+  async query(
+    opts: MediaQueryOptions = {},
+    scope?: MediaScope
+  ): Promise<{ media: MediaRow[]; total: number; limit: number; offset: number }> {
     const parsed = MediaQuerySchema.parse(opts);
+    const siteId = await this.resolveSiteId(undefined, scope);
 
     const {
       mimeType,
@@ -399,6 +544,7 @@ export class MediaService {
     const limit = Math.min(parsed.limit ?? 20, 100);
 
     const conditions = [];
+    if (!this.legacySingleSiteMode) conditions.push(eq(media.siteId, siteId));
     if (mimeType) conditions.push(eq(media.mimeType, mimeType));
     if (search) conditions.push(like(media.title, `%${escapeLike(search)}%`));
 
@@ -412,18 +558,35 @@ export class MediaService {
 
     const orderFn = order === "desc" ? desc : asc;
 
-    const rows = await this.db
-      .select()
-      .from(media)
-      .where(where)
-      .orderBy(orderFn(orderCol))
-      .limit(limit)
-      .offset(offset);
+    let rows;
+    let countResult;
+    try {
+      rows = this.legacySingleSiteMode
+        ? await this.selectLegacyMedia()
+            .from(media)
+            .where(where)
+            .orderBy(orderFn(orderCol))
+            .limit(limit)
+            .offset(offset)
+        : await this.db
+            .select()
+            .from(media)
+            .where(where)
+            .orderBy(orderFn(orderCol))
+            .limit(limit)
+            .offset(offset);
 
-    const [countResult] = await this.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(media)
-      .where(where);
+      [countResult] = await this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(media)
+        .where(where);
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return this.query(opts, scope);
+      }
+      throw error;
+    }
 
     return { media: rows, total: countResult.count, limit, offset };
   }

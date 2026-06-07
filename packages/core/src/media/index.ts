@@ -3,6 +3,7 @@ export {
   type UploadMediaInput,
   type UpdateMediaInput,
   type MediaQueryOptions,
+  type MediaScope,
 } from "./media.service.js";
 export {
   LocalStorageAdapter,
