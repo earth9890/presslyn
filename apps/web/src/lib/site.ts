@@ -111,12 +111,13 @@ export const getResolvedSite = cache(async (): Promise<ResolvedSiteContext | nul
  * request; the options service has its own autoload cache underneath.
  */
 export async function getSiteSettings(): Promise<SiteSettings> {
-  const [resolvedSite, title, description, url, perPage] = await Promise.all([
-    getResolvedSite(),
-    services.options.getOption("blogname").catch(() => null),
-    services.options.getOption("blogdescription").catch(() => null),
-    services.options.getOption("siteurl").catch(() => null),
-    services.options.getOption("posts_per_page").catch(() => null),
+  const resolvedSite = await getResolvedSite();
+  const optionScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
+  const [title, description, url, perPage] = await Promise.all([
+    services.options.getOption("blogname", null, optionScope).catch(() => null),
+    services.options.getOption("blogdescription", null, optionScope).catch(() => null),
+    services.options.getOption("siteurl", null, optionScope).catch(() => null),
+    services.options.getOption("posts_per_page", null, optionScope).catch(() => null),
   ]);
 
   const perPageNum = Number(perPage);

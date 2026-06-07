@@ -206,15 +206,6 @@ export const comments = pgTable(
   ]
 );
 
-// ─── Options (Key-Value Settings) ────────────────────────────
-
-export const options = pgTable("options", {
-  id: serial("id").primaryKey(),
-  key: varchar("key", { length: 255 }).notNull().unique(),
-  value: jsonb("value").$type<unknown>(),
-  autoload: boolean("autoload").notNull().default(true),
-});
-
 // ─── Multisite ───────────────────────────────────────────────
 
 export const sites = pgTable(
@@ -233,6 +224,23 @@ export const sites = pgTable(
   (table) => [
     uniqueIndex("sites_domain_path_idx").on(table.domain, table.path),
     index("sites_status_idx").on(table.status),
+  ]
+);
+
+// ─── Options (Key-Value Settings) ────────────────────────────
+
+export const options = pgTable(
+  "options",
+  {
+    id: serial("id").primaryKey(),
+    siteId: integer("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    key: varchar("key", { length: 255 }).notNull(),
+    value: jsonb("value").$type<unknown>(),
+    autoload: boolean("autoload").notNull().default(true),
+  },
+  (table) => [
+    uniqueIndex("options_site_key_idx").on(table.siteId, table.key),
+    index("options_site_idx").on(table.siteId),
   ]
 );
 
