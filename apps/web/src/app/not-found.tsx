@@ -6,6 +6,7 @@ export default async function NotFound() {
   const theme = await getActivePublicTheme();
   const template = getThemeTemplate(theme, "404");
   const content = await renderThemeTemplatePart(theme, "404", {
+    theme,
     siteTitle: "Presslyn",
   });
 

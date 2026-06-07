@@ -34,15 +34,19 @@ export default async function HomePage({
 
   const cards = await toPostCards(posts);
   const totalPages = Math.max(1, Math.ceil(total / limit));
-  const heroContent =
-    template.hero === "site-intro"
-      ? await renderThemeTemplate(theme, "index", {
-          siteTitle: site.title,
-          queryDescription: `Latest stories rendered through the ${theme.name} public theme layer.`,
-        })
-      : null;
+  const templateContent = await renderThemeTemplate(theme, "index", {
+    theme,
+    cardStyle: template.cardStyle ?? "minimal",
+    siteTitle: site.title,
+    queryDescription: `Latest stories rendered through the ${theme.name} public theme layer.`,
+    posts: cards,
+    emptyMessage: "No posts published yet.",
+    page,
+    totalPages,
+    basePath: "/",
+  });
 
-  if (cards.length === 0) {
+  if (!templateContent && cards.length === 0) {
     return (
       <div className="py-16 text-center text-muted">
         <p className="text-lg">No posts published yet.</p>
@@ -53,21 +57,21 @@ export default async function HomePage({
 
   return (
     <div className="space-y-8">
+      {templateContent ? (
+        templateContent
+      ) : (
+        <>
       {template.hero === "site-intro" ? (
         <section className="rounded-[1.8rem] border border-border bg-surface px-6 py-7">
-          {heroContent ?? (
-            <>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-                Active theme
-              </p>
-              <h1 className="mt-2 font-serif text-4xl font-bold leading-tight text-foreground">
-                {site.title}
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-                Latest stories rendered through the {theme.name} public theme layer.
-              </p>
-            </>
-          )}
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+            Active theme
+          </p>
+          <h1 className="mt-2 font-serif text-4xl font-bold leading-tight text-foreground">
+            {site.title}
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+            Latest stories rendered through the {theme.name} public theme layer.
+          </p>
         </section>
       ) : null}
       {cards.map((post) => (
@@ -103,6 +107,8 @@ export default async function HomePage({
           )}
         </nav>
       ) : null}
+        </>
+      )}
     </div>
   );
 }

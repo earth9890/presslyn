@@ -92,6 +92,7 @@ export default async function EntryPage({
     theme,
     postType === "page" ? "page" : "single",
     {
+      theme,
       siteTitle: site.title,
       postTitle: entry.title || "(untitled)",
       postDate: postType === "post" ? formatDate(entry.publishedAt ?? entry.createdAt) : undefined,

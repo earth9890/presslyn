@@ -62,10 +62,18 @@ export default async function AuthorPage({
     limit,
     offset: (page - 1) * limit,
   });
+  const cards = await toPostCards(posts);
   const headerContent = await renderThemeTemplate(theme, "archive", {
+    theme,
+    cardStyle: template.cardStyle ?? "minimal",
     siteTitle: site.title,
     queryTitle: author.displayName,
     queryDescription: `Posts by ${author.displayName}`,
+    posts: cards,
+    page,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    basePath: `/author/${author.username}`,
+    emptyMessage: "This author hasn't published anything yet.",
   });
 
   return (
@@ -73,7 +81,8 @@ export default async function AuthorPage({
       title={author.displayName}
       description={`Posts by ${author.displayName}`}
       headerContent={headerContent}
-      posts={await toPostCards(posts)}
+      content={headerContent}
+      posts={cards}
       theme={theme}
       frame={template.frame}
       cardStyle={template.cardStyle ?? "minimal"}

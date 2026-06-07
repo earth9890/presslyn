@@ -39,11 +39,20 @@ export default async function SearchPage({
         offset: (page - 1) * limit,
       })
     : { posts: [], total: 0 };
+  const cards = await toPostCards(result.posts);
   const resultsHeader = query
     ? await renderThemeTemplate(theme, "archive", {
+        theme,
+        cardStyle: template.cardStyle ?? "minimal",
         siteTitle: site.title,
         queryTitle: `Results for "${query}"`,
         queryDescription: `${result.total} result${result.total === 1 ? "" : "s"}`,
+        posts: cards,
+        page,
+        totalPages: Math.max(1, Math.ceil(result.total / limit)),
+        basePath: "/search",
+        extraQuery: { q: query },
+        emptyMessage: "No posts matched your search.",
       })
     : null;
 
@@ -83,7 +92,8 @@ export default async function SearchPage({
           title={`Results for “${query}”`}
           description={`${result.total} result${result.total === 1 ? "" : "s"}`}
           headerContent={resultsHeader}
-          posts={await toPostCards(result.posts)}
+          content={resultsHeader}
+          posts={cards}
           theme={theme}
           frame={template.frame}
           cardStyle={template.cardStyle ?? "minimal"}

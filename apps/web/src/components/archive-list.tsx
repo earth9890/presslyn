@@ -6,6 +6,7 @@ interface ArchiveListProps {
   title: string;
   description?: string;
   headerContent?: React.ReactNode;
+  content?: React.ReactNode;
   posts: PostCardData[];
   page: number;
   totalPages: number;
@@ -34,6 +35,7 @@ export function ArchiveList({
   title,
   description,
   headerContent,
+  content,
   posts,
   page,
   totalPages,
@@ -44,6 +46,10 @@ export function ArchiveList({
   frame,
   cardStyle,
 }: ArchiveListProps) {
+  if (content) {
+    return <div>{content}</div>;
+  }
+
   return (
     <div>
       <header

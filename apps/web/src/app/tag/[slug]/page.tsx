@@ -62,10 +62,18 @@ export default async function TagPage({
     limit,
     offset: (page - 1) * limit,
   });
+  const cards = await toPostCards(posts);
   const headerContent = await renderThemeTemplate(theme, "archive", {
+    theme,
+    cardStyle: template.cardStyle ?? "minimal",
     siteTitle: site.title,
     queryTitle: `Tag: ${term.name}`,
     queryDescription: term.description || undefined,
+    posts: cards,
+    page,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    basePath: `/tag/${term.slug}`,
+    emptyMessage: "No posts with this tag yet.",
   });
 
   return (
@@ -73,7 +81,8 @@ export default async function TagPage({
       title={`Tag: ${term.name}`}
       description={term.description || undefined}
       headerContent={headerContent}
-      posts={await toPostCards(posts)}
+      content={headerContent}
+      posts={cards}
       theme={theme}
       frame={template.frame}
       cardStyle={template.cardStyle ?? "minimal"}

@@ -10,6 +10,7 @@ export async function SiteFooter({
 }) {
   const { footer } = theme.config.templateParts;
   const content = await renderThemeTemplatePart(theme, "footer", {
+    theme,
     siteTitle: title,
   });
 

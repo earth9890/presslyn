@@ -16,6 +16,7 @@ export async function SiteHeader({
 }: SiteHeaderProps) {
   const { header } = theme.config.templateParts;
   const content = await renderThemeTemplatePart(theme, "header", {
+    theme,
     siteTitle: title,
     siteDescription: header.showDescription ? description : undefined,
     categories,

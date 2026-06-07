@@ -6,6 +6,7 @@ import {
   parseBlockTemplate,
   type ParsedTemplateBlock,
 } from "@presslyn/core";
+import { PostCard, type PostCardData } from "@/components/post-card";
 import type { PublicThemeDefinition } from "./public-theme";
 
 type TemplateName =
@@ -18,6 +19,8 @@ type TemplateName =
   | "page";
 
 interface TemplateContext {
+  theme: PublicThemeDefinition;
+  cardStyle?: "minimal" | "feature";
   siteTitle: string;
   siteDescription?: string;
   categories?: { slug: string; name: string }[];
@@ -27,6 +30,12 @@ interface TemplateContext {
   postDate?: string;
   postDateIso?: string;
   postAuthor?: string;
+  posts?: PostCardData[];
+  emptyMessage?: string;
+  page?: number;
+  totalPages?: number;
+  basePath?: string;
+  extraQuery?: Record<string, string>;
 }
 
 const loadTemplateBlocks = cache(
@@ -75,6 +84,19 @@ function interpolateTemplateString(value: string, context: TemplateContext): str
     const resolved = context[key as keyof TemplateContext];
     return typeof resolved === "string" ? resolved : "";
   });
+}
+
+function pageHref(
+  basePath: string,
+  page: number,
+  extraQuery?: Record<string, string>
+) {
+  const params = new URLSearchParams(extraQuery);
+  if (page > 1) {
+    params.set("page", String(page));
+  }
+  const qs = params.toString();
+  return qs ? `${basePath}?${qs}` : basePath;
 }
 
 function renderTemplateBlock(
@@ -218,6 +240,69 @@ function renderTemplateBlock(
           className="text-muted"
           dangerouslySetInnerHTML={{ __html: resolved }}
         />
+      );
+    }
+    case "query-loop": {
+      const posts = context.posts ?? [];
+      if (posts.length === 0) {
+        return (
+          <p key={key} className="py-12 text-center text-muted">
+            {context.emptyMessage ?? "No posts found."}
+          </p>
+        );
+      }
+
+      return (
+        <div key={key} className={className ?? "space-y-8"}>
+          {posts.map((post) => (
+            <PostCard
+              key={post.slug}
+              post={post}
+              theme={context.theme}
+              cardStyle={context.cardStyle ?? "minimal"}
+            />
+          ))}
+        </div>
+      );
+    }
+    case "pagination": {
+      const page = context.page ?? 1;
+      const totalPages = context.totalPages ?? 1;
+      const basePath = context.basePath;
+
+      if (!basePath || totalPages <= 1) {
+        return null;
+      }
+
+      return (
+        <nav
+          key={key}
+          className={className ?? "mt-10 flex items-center justify-between border-t border-border pt-6 text-sm"}
+        >
+          {page > 1 ? (
+            <Link
+              href={pageHref(basePath, page - 1, context.extraQuery)}
+              className="text-accent hover:underline"
+            >
+              ← Newer
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-muted">
+            Page {page} of {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link
+              href={pageHref(basePath, page + 1, context.extraQuery)}
+              className="text-accent hover:underline"
+            >
+              Older →
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
       );
     }
     case "post-meta":
