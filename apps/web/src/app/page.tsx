@@ -3,7 +3,7 @@ import { services } from "@/lib/services";
 import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { PostCard } from "@/components/post-card";
-import { getActivePublicTheme } from "@/themes/public-theme";
+import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +17,7 @@ export default async function HomePage({
     getSiteSettings(),
     getActivePublicTheme(),
   ]);
+  const template = getThemeTemplate(theme, "index");
   const page = Math.max(1, Number(pageParam ?? 1));
   const limit = site.postsPerPage;
   const offset = (page - 1) * limit;
@@ -44,7 +45,7 @@ export default async function HomePage({
 
   return (
     <div className="space-y-8">
-      {theme.variant === "ink" ? (
+      {template.hero === "site-intro" ? (
         <section className="rounded-[1.8rem] border border-border bg-surface px-6 py-7">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
             Active theme
@@ -58,7 +59,12 @@ export default async function HomePage({
         </section>
       ) : null}
       {cards.map((post) => (
-        <PostCard key={post.slug} post={post} variant={theme.variant} />
+        <PostCard
+          key={post.slug}
+          post={post}
+          theme={theme}
+          cardStyle={template.cardStyle ?? "minimal"}
+        />
       ))}
 
       {totalPages > 1 ? (

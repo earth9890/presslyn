@@ -187,9 +187,19 @@ export {
 export {
   ThemeManager,
   ThemeManifestSchema,
+  ThemeJsonSchema,
+  parseThemeJson,
   type ThemeManifest,
   type ThemeInfo,
   type ThemeOptionStore,
+  type ThemeJson,
+  type ThemeTokens,
+  type TemplateKind,
+  type TemplateConfig,
+  type TemplatePart,
+  type CardStyle,
+  type StyleVariation,
+  type ThemeVariant,
 } from "./themes/index.js";
 
 // Import (WXR)

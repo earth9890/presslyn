@@ -5,7 +5,7 @@ import { services } from "@/lib/services";
 import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { ArchiveList } from "@/components/archive-list";
-import { getActivePublicTheme } from "@/themes/public-theme";
+import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +48,7 @@ export default async function AuthorPage({
     getSiteSettings(),
     getActivePublicTheme(),
   ]);
+  const template = getThemeTemplate(theme, "author");
   const page = Math.max(1, Number(pageParam ?? 1));
   const limit = site.postsPerPage;
 
@@ -66,7 +67,9 @@ export default async function AuthorPage({
       title={author.displayName}
       description={`Posts by ${author.displayName}`}
       posts={await toPostCards(posts)}
-      variant={theme.variant}
+      theme={theme}
+      frame={template.frame}
+      cardStyle={template.cardStyle ?? "minimal"}
       page={page}
       totalPages={Math.max(1, Math.ceil(total / limit))}
       basePath={`/author/${author.username}`}

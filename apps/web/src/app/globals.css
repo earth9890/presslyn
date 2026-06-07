@@ -7,36 +7,26 @@
   --accent: #2f5d50;
   --border: #e7e6e1;
   --surface: #ffffff;
+  --background-dark: #14140f;
+  --foreground-dark: #ececdf;
+  --muted-dark: #9a9a8f;
+  --accent-dark: #8fc7b4;
+  --border-dark: #2a2a22;
+  --surface-dark: #1b1b15;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: Georgia, "Times New Roman", serif;
+  --site-content-width: 48rem;
+  --site-wide-width: 64rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #14140f;
-    --foreground: #ececdf;
-    --muted: #9a9a8f;
-    --accent: #8fc7b4;
-    --border: #2a2a22;
-    --surface: #1b1b15;
-  }
-}
-
-html[data-site-theme="presslyn-ink"] {
-  --background: #f3efe7;
-  --foreground: #171717;
-  --muted: #6d6257;
-  --accent: #8b3d2d;
-  --border: #d9cfbf;
-  --surface: #fffdf9;
-}
-
-@media (prefers-color-scheme: dark) {
-  html[data-site-theme="presslyn-ink"] {
-    --background: #161311;
-    --foreground: #f3ede5;
-    --muted: #b4a89d;
-    --accent: #e28b73;
-    --border: #342b24;
-    --surface: #1d1814;
+    --background: var(--background-dark);
+    --foreground: var(--foreground-dark);
+    --muted: var(--muted-dark);
+    --accent: var(--accent-dark);
+    --border: var(--border-dark);
+    --surface: var(--surface-dark);
   }
 }
 
@@ -47,13 +37,13 @@ html[data-site-theme="presslyn-ink"] {
   --color-accent: var(--accent);
   --color-border: var(--border);
   --color-surface: var(--surface);
-  --font-serif: Georgia, "Times New Roman", serif;
+  --font-serif: var(--font-heading);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 

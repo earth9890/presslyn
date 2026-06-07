@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PostCard, type PostCardData } from "./post-card";
-import type { PublicThemeVariant } from "@/themes/public-theme";
+import type { PublicThemeDefinition } from "@/themes/public-theme";
 
 interface ArchiveListProps {
   title: string;
@@ -13,7 +13,9 @@ interface ArchiveListProps {
   /** Extra query params to preserve in pagination links (e.g. search q). */
   extraQuery?: Record<string, string>;
   emptyMessage?: string;
-  variant: PublicThemeVariant;
+  theme: PublicThemeDefinition;
+  frame: "none" | "card";
+  cardStyle: "minimal" | "feature";
 }
 
 function pageHref(
@@ -36,20 +38,22 @@ export function ArchiveList({
   basePath,
   extraQuery,
   emptyMessage = "No posts found.",
-  variant,
+  theme,
+  frame,
+  cardStyle,
 }: ArchiveListProps) {
   return (
     <div>
       <header
         className={
-          variant === "ink"
+          frame === "card"
             ? "mb-8 rounded-[1.8rem] border border-border bg-surface px-6 py-7"
             : "mb-8 border-b border-border pb-6"
         }
       >
         <h1
           className={
-            variant === "ink"
+            frame === "card"
               ? "font-serif text-4xl font-bold leading-tight"
               : "font-serif text-3xl font-bold"
           }
@@ -64,19 +68,18 @@ export function ArchiveList({
       ) : (
         <div className="space-y-8">
           {posts.map((post) => (
-            <PostCard key={post.slug} post={post} variant={variant} />
+            <PostCard
+              key={post.slug}
+              post={post}
+              theme={theme}
+              cardStyle={cardStyle}
+            />
           ))}
         </div>
       )}
 
       {totalPages > 1 ? (
-        <nav
-          className={
-            variant === "ink"
-              ? "mt-10 flex items-center justify-between border-t border-border pt-6 text-sm"
-              : "mt-10 flex items-center justify-between border-t border-border pt-6 text-sm"
-          }
-        >
+        <nav className="mt-10 flex items-center justify-between border-t border-border pt-6 text-sm">
           {page > 1 ? (
             <Link
               href={pageHref(basePath, page - 1, extraQuery)}

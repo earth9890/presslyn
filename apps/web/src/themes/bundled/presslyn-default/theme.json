@@ -1,0 +1,86 @@
+{
+  "$schema": "https://presslyn.dev/theme.schema.json",
+  "version": 1,
+  "settings": {
+    "color": {
+      "background": "#fbfbfa",
+      "foreground": "#1a1a18",
+      "muted": "#6b6b66",
+      "accent": "#2f5d50",
+      "border": "#e7e6e1",
+      "surface": "#ffffff",
+      "darkBackground": "#14140f",
+      "darkForeground": "#ececdf",
+      "darkMuted": "#9a9a8f",
+      "darkAccent": "#8fc7b4",
+      "darkBorder": "#2a2a22",
+      "darkSurface": "#1b1b15"
+    },
+    "typography": {
+      "bodyFont": "ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "headingFont": "Georgia, \"Times New Roman\", serif"
+    },
+    "layout": {
+      "contentWidth": "48rem",
+      "wideWidth": "64rem",
+      "shellStyle": "plain"
+    },
+    "presentation": {
+      "variant": "editorial"
+    }
+  },
+  "templateParts": {
+    "header": {
+      "layout": "stacked",
+      "showDescription": true,
+      "showSearch": true
+    },
+    "footer": {
+      "layout": "simple",
+      "tagline": "Powered by Presslyn"
+    }
+  },
+  "templates": {
+    "index": {
+      "frame": "none",
+      "cardStyle": "minimal",
+      "hero": "none"
+    },
+    "single": {
+      "frame": "none"
+    },
+    "page": {
+      "frame": "none"
+    },
+    "archive": {
+      "frame": "none",
+      "cardStyle": "minimal"
+    },
+    "category": {
+      "frame": "none",
+      "cardStyle": "minimal"
+    },
+    "tag": {
+      "frame": "none",
+      "cardStyle": "minimal"
+    },
+    "author": {
+      "frame": "none",
+      "cardStyle": "minimal"
+    },
+    "search": {
+      "frame": "none",
+      "cardStyle": "minimal"
+    },
+    "404": {
+      "frame": "none"
+    }
+  },
+  "styleVariations": [
+    {
+      "id": "default",
+      "label": "Default",
+      "accent": "#2f5d50"
+    }
+  ]
+}

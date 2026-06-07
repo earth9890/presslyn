@@ -1,46 +1,103 @@
 import { cache } from "react";
+import {
+  parseThemeJson,
+  type CardStyle,
+  type TemplateConfig,
+  type TemplateKind,
+  type ThemeJson,
+  type ThemeVariant,
+} from "@presslyn/core";
 import { services } from "@/lib/services";
-
-export type PublicThemeVariant = "editorial" | "ink";
+import defaultThemeJson from "./bundled/presslyn-default/theme.json";
+import inkThemeJson from "./bundled/presslyn-ink/theme.json";
 
 export interface PublicThemeDefinition {
   id: string;
   name: string;
-  variant: PublicThemeVariant;
+  config: ThemeJson;
   bodyClassName: string;
-  shellClassName: string;
-  mainClassName: string;
-  contentClassName: string;
 }
+
+export type { CardStyle, ThemeVariant };
 
 const PUBLIC_THEMES: Record<string, PublicThemeDefinition> = {
   "presslyn-default": {
     id: "presslyn-default",
     name: "Presslyn Default",
-    variant: "editorial",
+    config: parseThemeJson(defaultThemeJson),
     bodyClassName: "bg-background text-foreground",
-    shellClassName: "",
-    mainClassName: "mx-auto w-full max-w-3xl flex-1 px-6 py-10",
-    contentClassName: "",
   },
   "presslyn-ink": {
     id: "presslyn-ink",
     name: "Presslyn Ink",
-    variant: "ink",
+    config: parseThemeJson(inkThemeJson),
     bodyClassName: "bg-background text-foreground",
-    shellClassName: "presslyn-theme-shell",
-    mainClassName:
-      "mx-auto w-full max-w-5xl flex-1 px-5 py-8 sm:px-6 lg:px-8 lg:py-10",
-    contentClassName: "presslyn-theme-frame",
   },
 };
 
 export function getPublicThemeById(id: string | null | undefined): PublicThemeDefinition {
-  if (!id) {
-    return PUBLIC_THEMES["presslyn-default"];
+  return PUBLIC_THEMES[id ?? "presslyn-default"] ?? PUBLIC_THEMES["presslyn-default"];
+}
+
+export function getThemeVariant(theme: PublicThemeDefinition): ThemeVariant {
+  return theme.config.settings.presentation.variant;
+}
+
+export function getThemeTemplate(
+  theme: PublicThemeDefinition,
+  kind: TemplateKind
+): TemplateConfig {
+  const templates = theme.config.templates;
+  const fallbacks: TemplateKind[] =
+    kind === "category" || kind === "tag" || kind === "author"
+      ? [kind, "archive", "index"]
+      : kind === "search"
+        ? ["search", "archive", "index"]
+        : [kind, "index"];
+
+  for (const key of fallbacks) {
+    const template = templates[key];
+    if (template) {
+      return template;
+    }
   }
 
-  return PUBLIC_THEMES[id] ?? PUBLIC_THEMES["presslyn-default"];
+  throw new Error(`Theme "${theme.id}" is missing a template for "${kind}"`);
+}
+
+export function getThemeShellClassName(theme: PublicThemeDefinition): string {
+  return theme.config.settings.layout.shellStyle === "tinted"
+    ? "presslyn-theme-shell"
+    : "";
+}
+
+export function getThemeMainClassName(theme: PublicThemeDefinition): string {
+  return getThemeVariant(theme) === "ink"
+    ? "mx-auto w-full max-w-5xl flex-1 px-5 py-8 sm:px-6 lg:px-8 lg:py-10"
+    : "mx-auto w-full max-w-3xl flex-1 px-6 py-10";
+}
+
+export function getThemeCssVariables(theme: PublicThemeDefinition): Record<string, string> {
+  const { color, typography, layout } = theme.config.settings;
+
+  return {
+    "--background": color.background,
+    "--foreground": color.foreground,
+    "--muted": color.muted,
+    "--accent": color.accent,
+    "--border": color.border,
+    "--surface": color.surface,
+    "--background-dark": color.darkBackground ?? color.background,
+    "--foreground-dark": color.darkForeground ?? color.foreground,
+    "--muted-dark": color.darkMuted ?? color.muted,
+    "--accent-dark": color.darkAccent ?? color.accent,
+    "--border-dark": color.darkBorder ?? color.border,
+    "--surface-dark": color.darkSurface ?? color.surface,
+    "--font-body": typography.bodyFont,
+    "--font-heading": typography.headingFont,
+    "--site-content-width": layout.contentWidth,
+    "--site-wide-width": layout.wideWidth,
+  };
 }
 
 export const getActivePublicTheme = cache(async (): Promise<PublicThemeDefinition> => {

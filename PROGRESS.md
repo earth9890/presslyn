@@ -2,7 +2,7 @@
 
 **Started**: April 11, 2026
 **Current Phase**: Phase 4.1 + Phase 6.4 remaining
-**Tests**: 300 passing (20 test files)
+**Tests**: 302 passing (21 test files)
 **Build**: 7 packages, zero errors
 
 ---
@@ -91,7 +91,7 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 
 | # | Module | Status | Date | Notes |
 |---|--------|--------|------|-------|
-| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime: the web app now resolves the active theme from `active_theme`, maps it through a theme registry, and renders shared layout/content surfaces through theme variants. Shipped a second bundled theme (`Presslyn Ink`) so Appearance changes the public frontend for real. `theme.json` parsing and block-template grammar rendering are still pending. |
+| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime plus a validated `theme.json`-style layer: bundled themes now ship parsed theme config (tokens, layout, template parts, template hierarchy, style-variation metadata), and the public site resolves templates for index/single/page/archive/category/tag/author/search/404 from the active theme. Appearance now changes both the public theme choice and the template chrome. Full block-template grammar rendering is still pending. |
 | 4.2 | Default Theme | VALIDATED | Jun 4, 2026 | A clean editorial default theme baked into `apps/web`: serif headlines, light/dark via CSS variables, header with category nav + search, footer, `.prose-content` styling for editor-authored HTML. |
 | 4.3 | SEO | VALIDATED | Jun 4, 2026 | Per-page metadata + Open Graph via Next `generateMetadata` (site-level template, article metadata on posts), JSON-LD BlogPosting/WebPage structured data, dynamic `sitemap.xml` (posts/pages/categories/tags), RSS 2.0 `/feed`, and `robots.txt` that respects the `blog_public` option. |
 | 4.4 | Public Pages | VALIDATED | Jun 4, 2026 | Home (paginated latest posts), single post & page (`/[slug]`, post-then-page resolution, published-only, comment display), category/tag/author archives, search, and a 404 — all SSR from the core services. |
@@ -128,6 +128,11 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 - Replaced the previously baked-in public look with a real web-theme registry in `apps/web`, keyed off the core `active_theme` option via `services.themes.getActiveId()`.
 - Added a second bundled public theme, **Presslyn Ink**, and routed the shared header, footer, home listing, archive lists, search, and single-entry pages through theme variants so the Appearance screen now changes the public site, not just stored metadata.
 - Validation: `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 4.1 progress: parsed theme config + template hierarchy
+- Added a shared `theme.json`-style parser in core (`ThemeJsonSchema`, `parseThemeJson`) with validation tests. Theme config now covers design tokens, layout widths, template parts, template hierarchy entries, and style-variation metadata.
+- Bundled public themes now ship actual `theme.json` files (`presslyn-default`, `presslyn-ink`) instead of only hardcoded TS branches. The web app resolves the active theme through parsed config and drives CSS variables, shell styling, header/footer layout, archive card style, single-page framing, search chrome, and 404 framing from template data.
+- Validation: `pnpm --filter @presslyn/core test` passes (302 tests / 21 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
 
 ### Jun 4, 2026 — Phase 5.2 + 3.9: Theme manager + Appearance (Phase 3 COMPLETE)
 - Core `ThemeManager` mirroring the plugin pattern: manifest schema, register, list, getActive, activate (persists `active_theme`, fires `switch_theme` with old/new). 4 unit tests — 296 core tests total.

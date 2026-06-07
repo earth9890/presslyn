@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/site";
-import type { PublicThemeVariant } from "@/themes/public-theme";
+import type { CardStyle, PublicThemeDefinition } from "@/themes/public-theme";
 
 export interface PostCardData {
   title: string;
@@ -13,12 +13,14 @@ export interface PostCardData {
 
 export function PostCard({
   post,
-  variant,
+  theme,
+  cardStyle,
 }: {
   post: PostCardData;
-  variant: PublicThemeVariant;
+  theme: PublicThemeDefinition;
+  cardStyle: CardStyle;
 }) {
-  if (variant === "ink") {
+  if (cardStyle === "feature") {
     return (
       <article className="rounded-[1.6rem] border border-border bg-surface px-6 py-6 shadow-[0_18px_42px_rgba(17,24,39,0.06)]">
         <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
@@ -41,7 +43,7 @@ export function PostCard({
           </p>
         ) : null}
         <div className="mt-5 flex items-center justify-between gap-4 text-sm">
-          <span className="text-muted">{post.author || "Presslyn editor"}</span>
+          <span className="text-muted">{post.author || theme.name}</span>
           <Link
             href={`/${post.slug}`}
             className="inline-flex items-center rounded-full border border-border px-3 py-1.5 text-accent transition-colors hover:border-accent hover:text-foreground"

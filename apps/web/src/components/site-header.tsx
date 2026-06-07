@@ -1,20 +1,22 @@
 import Link from "next/link";
-import type { PublicThemeVariant } from "@/themes/public-theme";
+import type { PublicThemeDefinition } from "@/themes/public-theme";
 
 interface SiteHeaderProps {
   title: string;
   description: string;
   categories: { slug: string; name: string }[];
-  variant: PublicThemeVariant;
+  theme: PublicThemeDefinition;
 }
 
 export function SiteHeader({
   title,
   description,
   categories,
-  variant,
+  theme,
 }: SiteHeaderProps) {
-  if (variant === "ink") {
+  const { header } = theme.config.templateParts;
+
+  if (header.layout === "split") {
     return (
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-5xl flex-col gap-6 px-5 py-8 sm:px-6 lg:px-8">
@@ -29,18 +31,20 @@ export function SiteHeader({
               >
                 {title}
               </Link>
-              {description ? (
+              {header.showDescription && description ? (
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
                   {description}
                 </p>
               ) : null}
             </div>
-            <Link
-              href="/search"
-              className="inline-flex h-10 items-center justify-center rounded-full border border-border px-4 text-sm text-muted transition-colors hover:border-accent hover:text-foreground"
-            >
-              Search the archive
-            </Link>
+            {header.showSearch ? (
+              <Link
+                href="/search"
+                className="inline-flex h-10 items-center justify-center rounded-full border border-border px-4 text-sm text-muted transition-colors hover:border-accent hover:text-foreground"
+              >
+                Search the archive
+              </Link>
+            ) : null}
           </div>
 
           <nav className="flex flex-wrap items-center gap-2 text-sm">
@@ -75,7 +79,7 @@ export function SiteHeader({
           >
             {title}
           </Link>
-          {description ? (
+          {header.showDescription && description ? (
             <p className="text-sm text-muted">{description}</p>
           ) : null}
         </div>
@@ -92,12 +96,14 @@ export function SiteHeader({
               {c.name}
             </Link>
           ))}
-          <Link
-            href="/search"
-            className="ml-auto text-muted transition-colors hover:text-foreground"
-          >
-            Search
-          </Link>
+          {header.showSearch ? (
+            <Link
+              href="/search"
+              className="ml-auto text-muted transition-colors hover:text-foreground"
+            >
+              Search
+            </Link>
+          ) : null}
         </nav>
       </div>
     </header>

@@ -1,23 +1,24 @@
 import Link from "next/link";
-import type { PublicThemeVariant } from "@/themes/public-theme";
+import type { PublicThemeDefinition } from "@/themes/public-theme";
 
 export function SiteFooter({
   title,
-  variant,
+  theme,
 }: {
   title: string;
-  variant: PublicThemeVariant;
+  theme: PublicThemeDefinition;
 }) {
   const year = new Date().getFullYear();
+  const { footer } = theme.config.templateParts;
 
-  if (variant === "ink") {
+  if (footer.layout === "columns") {
     return (
       <footer className="mt-16 border-t border-border">
         <div className="mx-auto grid max-w-5xl gap-5 px-5 py-8 text-sm text-muted sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:px-8">
           <div>
             <p className="font-medium text-foreground">© {year} {title}</p>
             <p className="mt-2 max-w-xl leading-6">
-              A modern publishing layer on top of a familiar WordPress-shaped workflow.
+              {footer.tagline ?? "A modern publishing layer on top of a familiar WordPress-shaped workflow."}
             </p>
           </div>
           <div className="flex items-center gap-4 lg:justify-end">
@@ -47,7 +48,7 @@ export function SiteFooter({
             RSS
           </Link>
           <span>
-            Powered by{" "}
+            {footer.tagline ?? "Powered by"}{" "}
             <a
               href="https://presslyn.com"
               className="text-accent hover:underline"

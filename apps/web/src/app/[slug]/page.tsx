@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { services } from "@/lib/services";
 import { formatDate, isoDate, excerptFrom, getSiteSettings } from "@/lib/site";
-import { getActivePublicTheme } from "@/themes/public-theme";
+import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +68,7 @@ export default async function EntryPage({
     getSiteSettings(),
     getActivePublicTheme(),
   ]);
+  const template = getThemeTemplate(theme, postType === "page" ? "page" : "single");
 
   const [details, commentsResult] = await Promise.all([
     services.content.getListDetails([entry.id]),
@@ -101,7 +102,7 @@ export default async function EntryPage({
   return (
     <article
       className={
-        theme.variant === "ink"
+        template.frame === "card"
           ? "rounded-[1.9rem] border border-border bg-surface px-6 py-7 shadow-[0_18px_42px_rgba(17,24,39,0.06)] sm:px-8 sm:py-8"
           : ""
       }
@@ -111,11 +112,11 @@ export default async function EntryPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className={theme.variant === "ink" ? "mb-10" : "mb-8"}>
+      <header className={template.frame === "card" ? "mb-10" : "mb-8"}>
         {postType === "post" ? (
           <div
             className={
-              theme.variant === "ink"
+              template.frame === "card"
                 ? "flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted"
                 : "flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-muted"
             }
@@ -133,7 +134,7 @@ export default async function EntryPage({
         ) : null}
         <h1
           className={
-            theme.variant === "ink"
+            template.frame === "card"
               ? "mt-3 font-serif text-5xl font-bold leading-[1.05]"
               : "mt-2 font-serif text-4xl font-bold leading-tight"
           }
