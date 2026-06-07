@@ -2,7 +2,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { services } from "@/lib/services";
-import { getSiteSettings } from "@/lib/site";
+import { getResolvedSite, getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { getSidebarTemplateData } from "@/lib/sidebar";
 import { ArchiveList } from "@/components/archive-list";
@@ -46,10 +46,12 @@ export default async function TagPage({
   const term = await resolveTerm(slug);
   if (!term) notFound();
 
-  const [site, theme] = await Promise.all([
+  const [site, theme, resolvedSite] = await Promise.all([
     getSiteSettings(),
     getActivePublicTheme(),
+    getResolvedSite(),
   ]);
+  const siteScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
   const template = getThemeTemplate(theme, "tag");
   const page = Math.max(1, Number(pageParam ?? 1));
   const limit = site.postsPerPage;
@@ -62,11 +64,11 @@ export default async function TagPage({
     order: "desc",
     limit,
     offset: (page - 1) * limit,
-  });
+  }, siteScope);
   const cards = await toPostCards(posts);
   const sidebarData =
     template.showSidebar && theme.config.templateParts.sidebar
-      ? await getSidebarTemplateData()
+      ? await getSidebarTemplateData(siteScope)
       : null;
   const headerContent = await renderThemeTemplate(theme, "archive", {
     theme,

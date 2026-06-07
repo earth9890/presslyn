@@ -1,12 +1,13 @@
 import { escapeXml, cdata } from "@presslyn/core";
 import { services } from "@/lib/services";
-import { getSiteSettings, excerptFrom } from "@/lib/site";
+import { getResolvedSite, getSiteSettings, excerptFrom } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
 /** RSS 2.0 feed of the latest published posts. */
 export async function GET() {
-  const site = await getSiteSettings();
+  const [site, resolvedSite] = await Promise.all([getSiteSettings(), getResolvedSite()]);
+  const siteScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
 
   const { posts } = await services.content.queryPosts({
     postType: "post",
@@ -14,7 +15,7 @@ export async function GET() {
     orderBy: "date",
     order: "desc",
     limit: 20,
-  });
+  }, siteScope);
 
   const details = await services.content.getListDetails(posts.map((p) => p.id));
 

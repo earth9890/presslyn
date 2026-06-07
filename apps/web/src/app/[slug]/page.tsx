@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { services } from "@/lib/services";
-import { formatDate, isoDate, excerptFrom, getSiteSettings } from "@/lib/site";
+import { formatDate, isoDate, excerptFrom, getResolvedSite, getSiteSettings } from "@/lib/site";
 import { getSidebarTemplateData } from "@/lib/sidebar";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
 import { renderThemeTemplate, renderThemeTemplatePart } from "@/themes/template-renderer";
@@ -15,10 +15,11 @@ export const dynamic = "force-dynamic";
  * Resolve a published entry by slug — a post first, then a page. Cached per
  * request so generateMetadata and the page component share one lookup.
  */
-const resolveEntry = cache(async (slug: string) => {
+const resolveEntry = cache(async (slug: string, siteId?: number) => {
+  const siteScope = siteId !== undefined ? { siteId } : undefined;
   for (const postType of ["post", "page"] as const) {
     try {
-      const entry = await services.content.getPostBySlug(slug, postType);
+      const entry = await services.content.getPostBySlug(slug, postType, siteScope);
       if (entry && entry.status === "publish") {
         return { entry, postType };
       }
@@ -35,7 +36,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const resolved = await resolveEntry(slug);
+  const resolvedSite = await getResolvedSite();
+  const resolved = await resolveEntry(slug, resolvedSite?.id);
   if (!resolved) return { title: "Not found" };
 
   const { entry } = resolved;
@@ -63,7 +65,9 @@ export default async function EntryPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const resolved = await resolveEntry(slug);
+  const resolvedSite = await getResolvedSite();
+  const siteScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
+  const resolved = await resolveEntry(slug, resolvedSite?.id);
   if (!resolved) notFound();
 
   const { entry, postType } = resolved;
@@ -91,7 +95,7 @@ export default async function EntryPage({
   const comments = commentsResult.comments;
   const sidebarData =
     template.showSidebar && theme.config.templateParts.sidebar
-      ? await getSidebarTemplateData()
+      ? await getSidebarTemplateData(siteScope)
       : null;
   const templateContent = await renderThemeTemplate(
     theme,

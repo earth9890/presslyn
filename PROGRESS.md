@@ -2,7 +2,7 @@
 
 **Started**: April 11, 2026
 **Current Phase**: Phase 4.1 + Phase 6.4 remaining
-**Tests**: 330 passing (25 test files)
+**Tests**: 333 passing (26 test files)
 **Build**: 7 packages, zero errors
 
 ---
@@ -111,12 +111,19 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 | 6.1 | Caching | VALIDATED | Jun 4, 2026 | Pluggable async object cache: `CacheStore` interface with `MemoryStore` (default, injectable clock) and a lazy-ioredis `RedisStore`, plus a WordPress-style `Transients` API (`get`/`set`/`delete`/`flush`/`remember`) and `cacheStoreFromEnv` (Redis when `REDIS_URL` set). 10 unit tests. Added alongside the existing per-request in-memory `CacheService` (untouched). Next.js ISR / CDN tuning is a deploy-time concern. |
 | 6.2 | Email | VALIDATED | Jun 4, 2026 | Core EmailService with a transport abstraction (LogTransport default, CapturingTransport for tests, nodemailer SmtpTransport lazily loaded, `transportFromEnv`), HTML+text templates (welcome, password reset, comment notification) with escaping, and `email_message` filter + `email_sent` action hooks. 6 unit tests. Wiring into auth/registration flows is pending a password-reset-token system. |
 | 6.3 | WP Importer | VALIDATED | Jun 4, 2026 | WXR importer completing the migration round-trip with the exporter: core `parseWxr` (fast-xml-parser, 7 round-trip tests through `buildWxr`) + idempotent `importWxr` (ensures categories/tags, maps authors to existing users by login, creates posts/pages with term assignment + comments, skips existing slugs). `POST /api/v1/import` (multipart, `import` capability, 25MB cap, parse errors → 400) and a Tools import button that reports a summary. Media re-download/re-linking still pending. |
-| 6.4 | Multisite | In Progress | Jun 7, 2026 | Foundation + runtime mapping + option isolation slices shipped: added a `sites` table + migration/seeded primary site, strict `CreateSite`/`UpdateSite` schemas, a `MultisiteService` with duplicate prevention, primary-site protection, and host/path site resolution, REST routes for list/create/update, a real `/network` admin screen, a public web runtime that resolves the current site per request, and site-scoped options storage/read paths with legacy-schema fallback for upgrades. Full per-site content isolation and subdirectory rewrites are still pending. |
+| 6.4 | Multisite | In Progress | Jun 7, 2026 | Foundation + runtime mapping + option isolation + post isolation slices shipped: added a `sites` table + migration/seeded primary site, strict `CreateSite`/`UpdateSite` schemas, a `MultisiteService` with duplicate prevention, primary-site protection, and host/path site resolution, REST routes for list/create/update, a real `/network` admin screen, a public web runtime that resolves the current site per request, site-scoped options storage/read paths with legacy-schema fallback, and site-scoped posts/pages with public queries now bound to the resolved site. Taxonomy/media/comments are still partially shared, and subdirectory rewrites are still pending. |
 | 6.5 | CLI Completion | VALIDATED | Jun 4, 2026 | `presslyn` CLI (commander) with service-backed commands: `status`, `user:create`, `user:list`, `post:list`, `export --out`, `import <file>`; `db:migrate`/`db:seed` delegate to the database package scripts. Live-validated against a real Postgres DB (created + migrated + seeded this session): status/lists work, and a full export → idempotent re-import → modified-import round-trip behaves correctly. |
 
 ---
 
 ## Changelog
+
+### Jun 7, 2026 — Phase 6.4 progress: site-scoped posts/pages
+- Added the next content-isolation slice in persistence: a new `posts.site_id` relationship plus a migration that attaches existing posts to the primary site and replaces the global slug/type indexes with site-aware equivalents.
+- Extended `ContentService` with site-aware post resolution, creation, uniqueness checks, status counts, and archive queries while preserving a compatibility fallback for pre-migration databases that still use the legacy single-site posts schema.
+- Updated the public web runtime so home, entry, feed, sitemap, search, and archive post queries all scope to the resolved site instead of reading from one global posts bucket.
+- Added a focused `ContentService` multisite test suite covering slug resolution and slug uniqueness across sites, bringing core coverage to **333 passing tests across 26 files**.
+- Validation: `pnpm --filter @presslyn/core test` passes (333 tests / 26 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
 
 ### Jun 7, 2026 — Phase 6.4 progress: site-scoped options isolation
 - Added the next multisite persistence slice in the database layer: a new `options.site_id` relationship plus a migration that attaches existing options to the primary site and enforces per-site option uniqueness going forward.

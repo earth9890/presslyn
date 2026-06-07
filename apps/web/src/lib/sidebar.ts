@@ -1,4 +1,5 @@
 import { services } from "@/lib/services";
+import type { ContentScope } from "@presslyn/core";
 
 export interface SidebarPostLink {
   slug: string;
@@ -16,7 +17,7 @@ export interface SidebarTemplateData {
   categories: SidebarCategoryLink[];
 }
 
-export async function getSidebarTemplateData(): Promise<SidebarTemplateData> {
+export async function getSidebarTemplateData(scope?: ContentScope): Promise<SidebarTemplateData> {
   const [recentResult, categories] = await Promise.all([
     services.content.queryPosts({
       postType: "post",
@@ -25,7 +26,7 @@ export async function getSidebarTemplateData(): Promise<SidebarTemplateData> {
       order: "desc",
       limit: 5,
       offset: 0,
-    }),
+    }, scope),
     services.taxonomy.getTermsWithCounts("category").catch(() => []),
   ]);
 

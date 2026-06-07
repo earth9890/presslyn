@@ -55,6 +55,7 @@ export const posts = pgTable(
   "posts",
   {
     id: serial("id").primaryKey(),
+    siteId: integer("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
     authorId: integer("author_id")
       .notNull()
       .references(() => users.id),
@@ -75,9 +76,10 @@ export const posts = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
+    index("posts_site_idx").on(table.siteId),
     index("posts_author_idx").on(table.authorId),
-    index("posts_type_status_idx").on(table.postType, table.status),
-    uniqueIndex("posts_slug_type_idx").on(table.slug, table.postType),
+    index("posts_site_type_status_idx").on(table.siteId, table.postType, table.status),
+    uniqueIndex("posts_site_slug_type_idx").on(table.siteId, table.slug, table.postType),
     index("posts_parent_idx").on(table.parentId),
     index("posts_published_at_idx").on(table.publishedAt),
   ]

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { services } from "@/lib/services";
-import { getSiteSettings, isoDate } from "@/lib/site";
+import { getResolvedSite, getSiteSettings, isoDate } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,10 @@ type SitemapPost = Awaited<
 >["posts"][number];
 
 /** Page through published content (list limit is capped at 100 server-side). */
-async function allPublished(postType: string): Promise<SitemapPost[]> {
+async function allPublished(
+  postType: string,
+  siteScope?: { siteId: number }
+): Promise<SitemapPost[]> {
   const out: SitemapPost[] = [];
   let offset = 0;
   while (out.length < MAX_URLS) {
@@ -23,7 +26,7 @@ async function allPublished(postType: string): Promise<SitemapPost[]> {
       order: "desc",
       limit: PAGE_SIZE,
       offset,
-    });
+    }, siteScope);
     out.push(...posts);
     offset += PAGE_SIZE;
     if (out.length >= total || posts.length < PAGE_SIZE) break;
@@ -32,12 +35,13 @@ async function allPublished(postType: string): Promise<SitemapPost[]> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const site = await getSiteSettings();
+  const [site, resolvedSite] = await Promise.all([getSiteSettings(), getResolvedSite()]);
+  const siteScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
   const base = site.url;
 
   const [postRows, pageRows, categories, tags] = await Promise.all([
-    allPublished("post"),
-    allPublished("page"),
+    allPublished("post", siteScope),
+    allPublished("page", siteScope),
     services.taxonomy.getTermsWithCounts("category").catch(() => []),
     services.taxonomy.getTermsWithCounts("post_tag").catch(() => []),
   ]);

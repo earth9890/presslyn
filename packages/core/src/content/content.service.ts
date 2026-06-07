@@ -16,6 +16,7 @@ import {
   users,
   comments,
   postStatusEnum,
+  sites,
 } from "@presslyn/database";
 import { hooks } from "../hooks.js";
 import { NotFoundError, ValidationError } from "../errors.js";
@@ -41,6 +42,7 @@ const RESTORABLE_STATUSES: ReadonlySet<string> = new Set<PostStatus>([
 ]);
 
 export interface CreatePostInput {
+  siteId?: number;
   authorId: number;
   postType?: string;
   title: string;
@@ -84,16 +86,107 @@ export interface PostQueryOptions {
   offset?: number;
 }
 
+export interface ContentScope {
+  siteId?: number;
+}
+
+type PostRow = typeof posts.$inferSelect;
+
 // ─── Service ───────────────────────────────────────────────
 
 export class ContentService {
+  private primarySiteId: number | null = null;
+  private legacySingleSiteMode = false;
+
   constructor(private db: Database) {}
+
+  private isMissingMultisiteSchemaError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const causeMessage =
+      error instanceof Error && error.cause
+        ? error.cause instanceof Error
+          ? error.cause.message
+          : String(error.cause)
+        : "";
+    const text = `${message}\n${causeMessage}`;
+    return (
+      text.includes('relation "sites" does not exist') ||
+      text.includes('column "site_id" does not exist')
+    );
+  }
+
+  private async getPrimarySiteId(): Promise<number> {
+    if (this.legacySingleSiteMode) {
+      return 1;
+    }
+    if (this.primarySiteId !== null) {
+      return this.primarySiteId;
+    }
+
+    let primary;
+    try {
+      [primary] = await this.db
+        .select({ id: sites.id })
+        .from(sites)
+        .where(eq(sites.isPrimary, true))
+        .limit(1);
+    } catch (error) {
+      if (this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return 1;
+      }
+      throw error;
+    }
+
+    if (!primary) {
+      throw new Error("Primary site is not configured");
+    }
+
+    this.primarySiteId = primary.id;
+    return primary.id;
+  }
+
+  private async resolveSiteId(
+    input?: { siteId?: number } | undefined,
+    scope?: ContentScope
+  ): Promise<number> {
+    if (scope?.siteId !== undefined) {
+      return scope.siteId;
+    }
+    if (input?.siteId !== undefined) {
+      return input.siteId;
+    }
+    return this.getPrimarySiteId();
+  }
+
+  private selectLegacyPosts() {
+    return this.db.select({
+      id: posts.id,
+      siteId: sql<number>`1`,
+      authorId: posts.authorId,
+      postType: posts.postType,
+      title: posts.title,
+      slug: posts.slug,
+      content: posts.content,
+      excerpt: posts.excerpt,
+      status: posts.status,
+      commentStatus: posts.commentStatus,
+      parentId: posts.parentId,
+      menuOrder: posts.menuOrder,
+      meta: posts.meta,
+      publishedAt: posts.publishedAt,
+      createdAt: posts.createdAt,
+      updatedAt: posts.updatedAt,
+    });
+  }
 
   // ─── Create ────────────────────────────────────────────
 
-  async createPost(input: CreatePostInput) {
+  async createPost(input: CreatePostInput, scope?: ContentScope) {
     // Validate input with Zod schema
-    const parsed = CreatePostSchema.parse(input);
+    const siteId = await this.resolveSiteId(input, scope);
+    const { siteId: _siteId, ...inputWithoutSiteId } = input;
+    const parsed = CreatePostSchema.parse(inputWithoutSiteId);
 
     const postType = parsed.postType ?? "post";
 
@@ -102,7 +195,7 @@ export class ContentService {
     }
 
     const slug = parsed.slug || generateSlug(parsed.title);
-    const uniqueSlug = await this.ensureUniqueSlug(slug, postType);
+    const uniqueSlug = await this.ensureUniqueSlug(slug, postType, siteId);
 
     // Apply filters to content before saving
     const title = await hooks.applyFilters("the_title", parsed.title);
@@ -113,23 +206,29 @@ export class ContentService {
 
     const status: PostStatus = parsed.status ?? "draft";
 
+    const postValues = {
+      authorId: parsed.authorId,
+      postType,
+      title,
+      slug: uniqueSlug,
+      content,
+      excerpt: parsed.excerpt ?? "",
+      status,
+      commentStatus: parsed.commentStatus ?? "open",
+      parentId: parsed.parentId,
+      menuOrder: parsed.menuOrder ?? 0,
+      meta: parsed.meta ?? {},
+      publishedAt:
+        status === "publish" ? parsed.publishedAt ?? new Date() : null,
+    };
+
     const [post] = await this.db
       .insert(posts)
-      .values({
-        authorId: parsed.authorId,
-        postType,
-        title,
-        slug: uniqueSlug,
-        content,
-        excerpt: parsed.excerpt ?? "",
-        status,
-        commentStatus: parsed.commentStatus ?? "open",
-        parentId: parsed.parentId,
-        menuOrder: parsed.menuOrder ?? 0,
-        meta: parsed.meta ?? {},
-        publishedAt:
-          status === "publish" ? parsed.publishedAt ?? new Date() : null,
-      })
+      .values(
+        this.legacySingleSiteMode
+          ? (postValues as never)
+          : ({ siteId, ...postValues } as never)
+      )
       .returning();
 
     await hooks.doAction("save_post", post, true /* isNew */);
@@ -143,30 +242,72 @@ export class ContentService {
 
   // ─── Read ──────────────────────────────────────────────
 
-  async getPostById(id: number) {
-    const [post] = await this.db
-      .select()
-      .from(posts)
-      .where(eq(posts.id, id))
-      .limit(1);
+  async getPostById(id: number, scope?: ContentScope) {
+    const siteId = await this.resolveSiteId(undefined, scope);
+    let post;
+    try {
+      [post] = this.legacySingleSiteMode
+        ? await this.selectLegacyPosts().from(posts).where(eq(posts.id, id)).limit(1)
+        : await this.db
+            .select()
+            .from(posts)
+            .where(and(eq(posts.id, id), eq(posts.siteId, siteId)))
+            .limit(1);
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        [post] = await this.selectLegacyPosts().from(posts).where(eq(posts.id, id)).limit(1);
+      } else {
+        throw error;
+      }
+    }
 
     if (!post) throw new NotFoundError("Post", id);
     return post;
   }
 
-  async getPostBySlug(slug: string, postType: string = "post") {
-    const [post] = await this.db
-      .select()
-      .from(posts)
-      .where(and(eq(posts.slug, slug), eq(posts.postType, postType)))
-      .limit(1);
+  async getPostBySlug(slug: string, postType: string = "post", scope?: ContentScope) {
+    const siteId = await this.resolveSiteId(undefined, scope);
+    let post;
+    try {
+      [post] = this.legacySingleSiteMode
+        ? await this.selectLegacyPosts()
+            .from(posts)
+            .where(and(eq(posts.slug, slug), eq(posts.postType, postType)))
+            .limit(1)
+        : await this.db
+            .select()
+            .from(posts)
+            .where(
+              and(
+                eq(posts.slug, slug),
+                eq(posts.postType, postType),
+                eq(posts.siteId, siteId)
+              )
+            )
+            .limit(1);
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        [post] = await this.selectLegacyPosts()
+          .from(posts)
+          .where(and(eq(posts.slug, slug), eq(posts.postType, postType)))
+          .limit(1);
+      } else {
+        throw error;
+      }
+    }
 
     return post ?? null;
   }
 
-  async queryPosts(opts: PostQueryOptions = {}) {
+  async queryPosts(
+    opts: PostQueryOptions = {},
+    scope?: ContentScope
+  ): Promise<{ posts: PostRow[]; total: number; limit: number; offset: number }> {
     // Validate input with Zod schema
     const parsed = PostQuerySchema.parse(opts);
+    const siteId = await this.resolveSiteId(undefined, scope);
 
     const {
       postType = "post",
@@ -187,6 +328,9 @@ export class ContentService {
     const limit = Math.min(parsed.limit ?? 20, 100);
 
     const conditions = [eq(posts.postType, postType)];
+    if (!this.legacySingleSiteMode) {
+      conditions.push(eq(posts.siteId, siteId));
+    }
 
     if (status) {
       if (Array.isArray(status)) {
@@ -231,21 +375,30 @@ export class ContentService {
 
     const orderFn = order === "desc" ? desc : asc;
 
-    const rows = await this.db
-      .selectDistinct({ post: posts })
-      .from(posts)
-      .leftJoin(postTerms, eq(posts.id, postTerms.postId))
-      .where(and(...conditions))
-      .orderBy(orderFn(orderCol))
-      .limit(limit)
-      .offset(offset);
+    let rows;
+    let countResult;
+    try {
+      rows = await this.db
+        .selectDistinct({ post: posts })
+        .from(posts)
+        .leftJoin(postTerms, eq(posts.id, postTerms.postId))
+        .where(and(...conditions))
+        .orderBy(orderFn(orderCol))
+        .limit(limit)
+        .offset(offset);
 
-    // Total count (same filters, no limit/offset)
-    const [countResult] = await this.db
-      .select({ count: sql<number>`count(distinct ${posts.id})::int` })
-      .from(posts)
-      .leftJoin(postTerms, eq(posts.id, postTerms.postId))
-      .where(and(...conditions));
+      [countResult] = await this.db
+        .select({ count: sql<number>`count(distinct ${posts.id})::int` })
+        .from(posts)
+        .leftJoin(postTerms, eq(posts.id, postTerms.postId))
+        .where(and(...conditions));
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return this.queryPosts(opts, scope);
+      }
+      throw error;
+    }
 
     return {
       posts: rows.map((row) => row.post),
@@ -257,11 +410,11 @@ export class ContentService {
 
   // ─── Update ────────────────────────────────────────────
 
-  async updatePost(id: number, input: UpdatePostInput) {
+  async updatePost(id: number, input: UpdatePostInput, scope?: ContentScope) {
     // Validate input with Zod schema
     const parsed = UpdatePostSchema.parse(input);
 
-    const existing = await this.getPostById(id);
+    const existing = await this.getPostById(id, scope);
 
     // Create revision before updating
     await this.createRevision(existing);
@@ -286,6 +439,7 @@ export class ContentService {
       updates.slug = await this.ensureUniqueSlug(
         parsed.slug,
         existing.postType,
+        existing.siteId,
         id
       );
     }
@@ -298,7 +452,11 @@ export class ContentService {
     const [updated] = await this.db
       .update(posts)
       .set(updates)
-      .where(eq(posts.id, id))
+      .where(
+        this.legacySingleSiteMode
+          ? eq(posts.id, id)
+          : and(eq(posts.id, id), eq(posts.siteId, existing.siteId))
+      )
       .returning();
 
     await hooks.doAction("save_post", updated, false /* isNew */);
@@ -321,8 +479,8 @@ export class ContentService {
 
   // ─── Delete / Trash ────────────────────────────────────
 
-  async trashPost(id: number) {
-    const post = await this.getPostById(id);
+  async trashPost(id: number, scope?: ContentScope) {
+    const post = await this.getPostById(id, scope);
     if (post.status === "trash") return post;
 
     // Store original status in meta so we can restore
@@ -336,15 +494,19 @@ export class ContentService {
         meta,
         updatedAt: new Date(),
       })
-      .where(eq(posts.id, id))
+      .where(
+        this.legacySingleSiteMode
+          ? eq(posts.id, id)
+          : and(eq(posts.id, id), eq(posts.siteId, post.siteId))
+      )
       .returning();
 
     await hooks.doAction("trash_post", trashed);
     return trashed;
   }
 
-  async restorePost(id: number) {
-    const post = await this.getPostById(id);
+  async restorePost(id: number, scope?: ContentScope) {
+    const post = await this.getPostById(id, scope);
     if (post.status !== "trash") return post;
 
     const meta = (post.meta as Record<string, unknown>) ?? {};
@@ -363,15 +525,19 @@ export class ContentService {
     const [restored] = await this.db
       .update(posts)
       .set({ status: originalStatus, meta, updatedAt: new Date() })
-      .where(eq(posts.id, id))
+      .where(
+        this.legacySingleSiteMode
+          ? eq(posts.id, id)
+          : and(eq(posts.id, id), eq(posts.siteId, post.siteId))
+      )
       .returning();
 
     await hooks.doAction("untrash_post", restored);
     return restored;
   }
 
-  async deletePost(id: number) {
-    const post = await this.getPostById(id);
+  async deletePost(id: number, scope?: ContentScope) {
+    const post = await this.getPostById(id, scope);
     await hooks.doAction("before_delete_post", post);
 
     // Wrap all deletes in a transaction for atomicity
@@ -438,15 +604,32 @@ export class ContentService {
 
   // ─── Status Counts ─────────────────────────────────────
 
-  async getStatusCounts(postType: string = "post") {
-    const result = await this.db
-      .select({
-        status: posts.status,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(posts)
-      .where(eq(posts.postType, postType))
-      .groupBy(posts.status);
+  async getStatusCounts(
+    postType: string = "post",
+    scope?: ContentScope
+  ): Promise<Record<string, number>> {
+    const siteId = await this.resolveSiteId(undefined, scope);
+    let result;
+    try {
+      result = await this.db
+        .select({
+          status: posts.status,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(posts)
+        .where(
+          this.legacySingleSiteMode
+            ? eq(posts.postType, postType)
+            : and(eq(posts.postType, postType), eq(posts.siteId, siteId))
+        )
+        .groupBy(posts.status);
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return this.getStatusCounts(postType, scope);
+      }
+      throw error;
+    }
 
     const counts: Record<string, number> = {};
     for (const row of result) {
@@ -455,22 +638,41 @@ export class ContentService {
     return counts;
   }
 
-  async getArchiveOptions(postType: string = "post") {
-    const rows = await this.db
-      .select({
-        value: sql<string>`to_char(coalesce(${posts.publishedAt}, ${posts.createdAt}), 'YYYY-MM')`,
-        label: sql<string>`to_char(coalesce(${posts.publishedAt}, ${posts.createdAt}), 'Mon YYYY')`,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(posts)
-      .where(and(eq(posts.postType, postType), sql`${posts.status} <> 'trash'`))
-      .groupBy(
-        sql`to_char(coalesce(${posts.publishedAt}, ${posts.createdAt}), 'YYYY-MM')`,
-        sql`to_char(coalesce(${posts.publishedAt}, ${posts.createdAt}), 'Mon YYYY')`
-      )
-      .orderBy(
-        desc(sql`to_char(coalesce(${posts.publishedAt}, ${posts.createdAt}), 'YYYY-MM')`)
-      );
+  async getArchiveOptions(
+    postType: string = "post",
+    scope?: ContentScope
+  ): Promise<Array<{ value: string; label: string; count: number }>> {
+    const siteId = await this.resolveSiteId(undefined, scope);
+    let rows;
+    try {
+      rows = await this.db
+        .select({
+          value: sql<string>`to_char(coalesce(${posts.publishedAt}, ${posts.createdAt}), 'YYYY-MM')`,
+          label: sql<string>`to_char(coalesce(${posts.publishedAt}, ${posts.createdAt}), 'Mon YYYY')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(posts)
+        .where(
+          and(
+            eq(posts.postType, postType),
+            sql`${posts.status} <> 'trash'`,
+            ...(this.legacySingleSiteMode ? [] : [eq(posts.siteId, siteId)])
+          )
+        )
+        .groupBy(
+          sql`to_char(coalesce(${posts.publishedAt}, ${posts.createdAt}), 'YYYY-MM')`,
+          sql`to_char(coalesce(${posts.publishedAt}, ${posts.createdAt}), 'Mon YYYY')`
+        )
+        .orderBy(
+          desc(sql`to_char(coalesce(${posts.publishedAt}, ${posts.createdAt}), 'YYYY-MM')`)
+        );
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return this.getArchiveOptions(postType, scope);
+      }
+      throw error;
+    }
 
     return rows;
   }
@@ -553,6 +755,7 @@ export class ContentService {
   private async ensureUniqueSlug(
     slug: string,
     postType: string,
+    siteId: number,
     excludeId?: number
   ): Promise<string> {
     let candidate = slug;
@@ -566,13 +769,23 @@ export class ContentService {
       const conditions = [
         eq(posts.slug, candidate),
         eq(posts.postType, postType),
+        ...(this.legacySingleSiteMode ? [] : [eq(posts.siteId, siteId)]),
       ];
 
-      const [existing] = await this.db
-        .select({ id: posts.id })
-        .from(posts)
-        .where(and(...conditions))
-        .limit(1);
+      let existing;
+      try {
+        [existing] = await this.db
+          .select({ id: posts.id })
+          .from(posts)
+          .where(and(...conditions))
+          .limit(1);
+      } catch (error) {
+        if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+          this.legacySingleSiteMode = true;
+          return this.ensureUniqueSlug(slug, postType, siteId, excludeId);
+        }
+        throw error;
+      }
 
       if (!existing || (excludeId !== undefined && existing.id === excludeId)) {
         return candidate;

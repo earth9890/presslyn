@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { services } from "@/lib/services";
-import { getSiteSettings } from "@/lib/site";
+import { getResolvedSite, getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { PostCard } from "@/components/post-card";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
@@ -14,10 +14,12 @@ export default async function HomePage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const { page: pageParam } = await searchParams;
-  const [site, theme] = await Promise.all([
+  const [site, theme, resolvedSite] = await Promise.all([
     getSiteSettings(),
     getActivePublicTheme(),
+    getResolvedSite(),
   ]);
+  const siteScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
   const template = getThemeTemplate(theme, "index");
   const page = Math.max(1, Number(pageParam ?? 1));
   const limit = site.postsPerPage;
@@ -30,7 +32,7 @@ export default async function HomePage({
     order: "desc",
     limit,
     offset,
-  });
+  }, siteScope);
 
   const cards = await toPostCards(posts);
   const totalPages = Math.max(1, Math.ceil(total / limit));

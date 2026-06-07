@@ -58,6 +58,7 @@ export {
   type CreatePostInput,
   type UpdatePostInput,
   type PostQueryOptions,
+  type ContentScope,
   registerPostType,
   getPostType,
   getAllPostTypes,
