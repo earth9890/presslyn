@@ -5,7 +5,7 @@
  * CRUD for posts, pages, and custom post types.
  */
 
-import { eq, and, desc, asc, like, sql, inArray, isNull } from "drizzle-orm";
+import { eq, and, or, desc, asc, like, sql, inArray, isNull } from "drizzle-orm";
 import { type Database } from "@presslyn/database";
 import {
   posts,
@@ -347,7 +347,12 @@ export class ContentService {
     if (authorId) conditions.push(eq(posts.authorId, authorId));
     if (termId) conditions.push(eq(postTerms.termId, termId));
     if (slug) conditions.push(eq(posts.slug, slug));
-    if (search) conditions.push(like(posts.title, `%${escapeLike(search)}%`));
+    if (search) {
+      const pattern = `%${escapeLike(search)}%`;
+      conditions.push(
+        or(like(posts.title, pattern), like(posts.content, pattern), like(posts.excerpt, pattern))
+      );
+    }
     if (parentId !== undefined) {
       if (parentId === null) {
         conditions.push(isNull(posts.parentId));
