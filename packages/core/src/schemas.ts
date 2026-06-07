@@ -168,3 +168,34 @@ export const CommentQuerySchema = z
     offset: z.number().int().min(0).optional(),
   })
   .strict();
+
+// ─── Multisite ─────────────────────────────────────────────
+
+export const CreateSiteSchema = z
+  .object({
+    name: z.string().min(1).max(255),
+    domain: z.string().min(1).max(255).regex(/^[a-z0-9.-]+(?::\d+)?$/i),
+    path: z
+      .string()
+      .min(1)
+      .max(255)
+      .regex(/^\/.*$/, "path must start with /")
+      .optional(),
+    meta: z.record(z.unknown()).optional(),
+  })
+  .strict();
+
+export const UpdateSiteSchema = z
+  .object({
+    name: z.string().min(1).max(255).optional(),
+    domain: z.string().min(1).max(255).regex(/^[a-z0-9.-]+(?::\d+)?$/i).optional(),
+    path: z
+      .string()
+      .min(1)
+      .max(255)
+      .regex(/^\/.*$/, "path must start with /")
+      .optional(),
+    status: z.enum(["active", "archived", "deleted"]).optional(),
+    meta: z.record(z.unknown()).optional(),
+  })
+  .strict();

@@ -9,3 +9,4 @@ dist/
 .DS_Store
 coverage/
 .code-review-graph/
+apps/admin/public/uploads/

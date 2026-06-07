@@ -16,7 +16,11 @@ import {
   OptionsService,
   MediaService,
   PluginManager,
+  BlockRegistry,
   ThemeManager,
+  MultisiteService,
+  discoverFilesystemThemes,
+  resolveThemesDirectory,
   type StorageAdapter,
 } from "@presslyn/core";
 import { registerBundledPlugins } from "./plugins/bundled.js";
@@ -32,7 +36,9 @@ export interface Services {
   options: OptionsService;
   media: MediaService;
   plugins: PluginManager;
+  blocks: BlockRegistry;
   themes: ThemeManager;
+  multisite: MultisiteService;
 }
 
 /**
@@ -51,6 +57,17 @@ export function createServices(db: Database, storage: StorageAdapter): Services 
 
   const themes = new ThemeManager(options);
   registerBundledThemes(themes);
+  for (const theme of discoverFilesystemThemes(resolveThemesDirectory())) {
+    try {
+      themes.register(theme.manifest);
+    } catch (error) {
+      console.warn(
+        `Skipping filesystem theme "${theme.directory}":`,
+        error
+      );
+    }
+  }
+  const blocks = new BlockRegistry();
 
   return {
     content: new ContentService(db),
@@ -60,7 +77,9 @@ export function createServices(db: Database, storage: StorageAdapter): Services 
     options,
     media: new MediaService(db, storage),
     plugins,
+    blocks,
     themes,
+    multisite: new MultisiteService(db),
   };
 }
 

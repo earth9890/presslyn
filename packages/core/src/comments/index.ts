@@ -1,1 +1,6 @@
-export { CommentsService, type CreateCommentInput, type CommentQueryOptions } from "./comments.service.js";
+export {
+  CommentsService,
+  type CreateCommentInput,
+  type CommentQueryOptions,
+  type CommentScope,
+} from "./comments.service.js";

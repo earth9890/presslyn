@@ -13,6 +13,8 @@ export {
   TermQuerySchema,
   CreateCommentSchema,
   CommentQuerySchema,
+  CreateSiteSchema,
+  UpdateSiteSchema,
 } from "./schemas.js";
 
 // Hook System
@@ -56,6 +58,7 @@ export {
   type CreatePostInput,
   type UpdatePostInput,
   type PostQueryOptions,
+  type ContentScope,
   registerPostType,
   getPostType,
   getAllPostTypes,
@@ -71,6 +74,7 @@ export {
   type UpdateTermInput,
   type TermQueryOptions,
   type TermTreeNode,
+  type TaxonomyScope,
 } from "./taxonomy/index.js";
 
 // Comments
@@ -78,6 +82,7 @@ export {
   CommentsService,
   type CreateCommentInput,
   type CommentQueryOptions,
+  type CommentScope,
 } from "./comments/index.js";
 
 // Formatting
@@ -134,6 +139,7 @@ export {
   type UploadMediaInput,
   type UpdateMediaInput,
   type MediaQueryOptions,
+  type MediaScope,
   type StorageAdapter,
   registerImageSize,
   getImageSize,
@@ -167,14 +173,55 @@ export {
   type PluginOptionStore,
 } from "./plugins/index.js";
 
+// Blocks
+export {
+  BlockRegistry,
+  BlockCategorySchema,
+  BlockManifestSchema,
+  BlockPatternSchema,
+  BlockStyleSchema,
+  type BlockCategory,
+  type BlockManifest,
+  type BlockPattern,
+  type BlockStyle,
+  type BlockAttributes,
+  type BlockRenderContext,
+  type BlockDefinition,
+  parseBlockTemplate,
+  type ParsedTemplateBlock,
+} from "./blocks/index.js";
+
 // Themes
 export {
   ThemeManager,
   ThemeManifestSchema,
+  THEME_CONFIG_FILENAME,
+  THEME_MANIFEST_FILENAME,
+  ThemeJsonSchema,
+  discoverFilesystemThemes,
+  parseThemeJson,
+  readThemeManifestFromDirectory,
+  resolveThemesDirectory,
+  type FilesystemTheme,
   type ThemeManifest,
   type ThemeInfo,
   type ThemeOptionStore,
+  type ThemeJson,
+  type ThemeTokens,
+  type TemplateKind,
+  type TemplateConfig,
+  type TemplatePart,
+  type CardStyle,
+  type StyleVariation,
+  type ThemeVariant,
 } from "./themes/index.js";
+
+// Multisite
+export {
+  MultisiteService,
+  type CreateSiteInput,
+  type UpdateSiteInput,
+} from "./multisite/index.js";
 
 // Import (WXR)
 export {

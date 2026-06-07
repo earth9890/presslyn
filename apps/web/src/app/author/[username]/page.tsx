@@ -2,9 +2,12 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { services } from "@/lib/services";
-import { getSiteSettings } from "@/lib/site";
+import { getResolvedSite, getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
+import { getSidebarTemplateData } from "@/lib/sidebar";
 import { ArchiveList } from "@/components/archive-list";
+import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
+import { renderThemeTemplate, renderThemeTemplatePart } from "@/themes/template-renderer";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +46,13 @@ export default async function AuthorPage({
   const author = await resolveAuthor(username);
   if (!author) notFound();
 
-  const site = await getSiteSettings();
+  const [site, theme, resolvedSite] = await Promise.all([
+    getSiteSettings(),
+    getActivePublicTheme(),
+    getResolvedSite(),
+  ]);
+  const siteScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
+  const template = getThemeTemplate(theme, "author");
   const page = Math.max(1, Number(pageParam ?? 1));
   const limit = site.postsPerPage;
 
@@ -55,13 +64,46 @@ export default async function AuthorPage({
     order: "desc",
     limit,
     offset: (page - 1) * limit,
+  }, siteScope);
+  const cards = await toPostCards(posts);
+  const sidebarData =
+    template.showSidebar && theme.config.templateParts.sidebar
+      ? await getSidebarTemplateData(siteScope)
+      : null;
+  const headerContent = await renderThemeTemplate(theme, "archive", {
+    theme,
+    cardStyle: template.cardStyle ?? "minimal",
+    siteTitle: site.title,
+    queryTitle: author.displayName,
+    queryDescription: `Posts by ${author.displayName}`,
+    posts: cards,
+    page,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    basePath: `/author/${author.username}`,
+    emptyMessage: "This author hasn't published anything yet.",
   });
+  const sidebarContent =
+    template.showSidebar && theme.config.templateParts.sidebar
+      ? await renderThemeTemplatePart(theme, "sidebar", {
+          theme,
+          siteTitle: site.title,
+          sidebarRecentPosts: sidebarData?.recentPosts,
+          sidebarCategories: sidebarData?.categories,
+        })
+      : null;
 
   return (
     <ArchiveList
       title={author.displayName}
       description={`Posts by ${author.displayName}`}
-      posts={await toPostCards(posts)}
+      headerContent={headerContent}
+      content={headerContent}
+      sidebarContent={sidebarContent}
+      showSidebar={template.showSidebar}
+      posts={cards}
+      theme={theme}
+      frame={template.frame}
+      cardStyle={template.cardStyle ?? "minimal"}
       page={page}
       totalPages={Math.max(1, Math.ceil(total / limit))}
       basePath={`/author/${author.username}`}

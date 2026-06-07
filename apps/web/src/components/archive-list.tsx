@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { PostCard, type PostCardData } from "./post-card";
+import type { PublicThemeDefinition } from "@/themes/public-theme";
 
 interface ArchiveListProps {
   title: string;
   description?: string;
+  headerContent?: React.ReactNode;
+  content?: React.ReactNode;
+  sidebarContent?: React.ReactNode;
+  showSidebar?: boolean;
   posts: PostCardData[];
   page: number;
   totalPages: number;
@@ -12,6 +17,9 @@ interface ArchiveListProps {
   /** Extra query params to preserve in pagination links (e.g. search q). */
   extraQuery?: Record<string, string>;
   emptyMessage?: string;
+  theme: PublicThemeDefinition;
+  frame: "none" | "card";
+  cardStyle: "minimal" | "feature";
 }
 
 function pageHref(
@@ -28,18 +36,56 @@ function pageHref(
 export function ArchiveList({
   title,
   description,
+  headerContent,
+  content,
+  sidebarContent,
+  showSidebar = false,
   posts,
   page,
   totalPages,
   basePath,
   extraQuery,
   emptyMessage = "No posts found.",
+  theme,
+  frame,
+  cardStyle,
 }: ArchiveListProps) {
+  if (showSidebar && sidebarContent) {
+    return (
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+        <div>{content ?? headerContent}</div>
+        <div className="lg:sticky lg:top-6">{sidebarContent}</div>
+      </div>
+    );
+  }
+
+  if (content) {
+    return <div>{content}</div>;
+  }
+
   return (
     <div>
-      <header className="mb-8 border-b border-border pb-6">
-        <h1 className="font-serif text-3xl font-bold">{title}</h1>
-        {description ? <p className="mt-2 text-muted">{description}</p> : null}
+      <header
+        className={
+          frame === "card"
+            ? "mb-8 rounded-[1.8rem] border border-border bg-surface px-6 py-7"
+            : "mb-8 border-b border-border pb-6"
+        }
+      >
+        {headerContent ?? (
+          <>
+            <h1
+              className={
+                frame === "card"
+                  ? "font-serif text-4xl font-bold leading-tight"
+                  : "font-serif text-3xl font-bold"
+              }
+            >
+              {title}
+            </h1>
+            {description ? <p className="mt-2 text-muted">{description}</p> : null}
+          </>
+        )}
       </header>
 
       {posts.length === 0 ? (
@@ -47,7 +93,12 @@ export function ArchiveList({
       ) : (
         <div className="space-y-8">
           {posts.map((post) => (
-            <PostCard key={post.slug} post={post} />
+            <PostCard
+              key={post.slug}
+              post={post}
+              theme={theme}
+              cardStyle={cardStyle}
+            />
           ))}
         </div>
       )}

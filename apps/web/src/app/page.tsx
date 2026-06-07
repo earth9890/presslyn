@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { services } from "@/lib/services";
-import { getSiteSettings } from "@/lib/site";
+import { getResolvedSite, getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { PostCard } from "@/components/post-card";
+import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
+import { renderThemeTemplate } from "@/themes/template-renderer";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,13 @@ export default async function HomePage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const { page: pageParam } = await searchParams;
-  const site = await getSiteSettings();
+  const [site, theme, resolvedSite] = await Promise.all([
+    getSiteSettings(),
+    getActivePublicTheme(),
+    getResolvedSite(),
+  ]);
+  const siteScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
+  const template = getThemeTemplate(theme, "index");
   const page = Math.max(1, Number(pageParam ?? 1));
   const limit = site.postsPerPage;
   const offset = (page - 1) * limit;
@@ -24,12 +32,23 @@ export default async function HomePage({
     order: "desc",
     limit,
     offset,
-  });
+  }, siteScope);
 
   const cards = await toPostCards(posts);
   const totalPages = Math.max(1, Math.ceil(total / limit));
+  const templateContent = await renderThemeTemplate(theme, "index", {
+    theme,
+    cardStyle: template.cardStyle ?? "minimal",
+    siteTitle: site.title,
+    queryDescription: `Latest stories rendered through the ${theme.name} public theme layer.`,
+    posts: cards,
+    emptyMessage: "No posts published yet.",
+    page,
+    totalPages,
+    basePath: "/",
+  });
 
-  if (cards.length === 0) {
+  if (!templateContent && cards.length === 0) {
     return (
       <div className="py-16 text-center text-muted">
         <p className="text-lg">No posts published yet.</p>
@@ -40,8 +59,30 @@ export default async function HomePage({
 
   return (
     <div className="space-y-8">
+      {templateContent ? (
+        templateContent
+      ) : (
+        <>
+      {template.hero === "site-intro" ? (
+        <section className="rounded-[1.8rem] border border-border bg-surface px-6 py-7">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+            Active theme
+          </p>
+          <h1 className="mt-2 font-serif text-4xl font-bold leading-tight text-foreground">
+            {site.title}
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+            Latest stories rendered through the {theme.name} public theme layer.
+          </p>
+        </section>
+      ) : null}
       {cards.map((post) => (
-        <PostCard key={post.slug} post={post} />
+        <PostCard
+          key={post.slug}
+          post={post}
+          theme={theme}
+          cardStyle={template.cardStyle ?? "minimal"}
+        />
       ))}
 
       {totalPages > 1 ? (
@@ -68,6 +109,8 @@ export default async function HomePage({
           )}
         </nav>
       ) : null}
+        </>
+      )}
     </div>
   );
 }

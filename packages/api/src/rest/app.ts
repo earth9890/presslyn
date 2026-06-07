@@ -23,6 +23,7 @@ import { exportRoutes } from "./routes/export.js";
 import { importRoutes } from "./routes/import.js";
 import { pluginsRoutes } from "./routes/plugins.js";
 import { themesRoutes } from "./routes/themes.js";
+import { sitesRoutes } from "./routes/sites.js";
 
 /**
  * Create and configure the Hono REST API application.
@@ -56,6 +57,7 @@ export function createRestApp(services: Services) {
   app.route("/api/v1/import", importRoutes);
   app.route("/api/v1/plugins", pluginsRoutes);
   app.route("/api/v1/themes", themesRoutes);
+  app.route("/api/v1/sites", sitesRoutes);
 
   return app;
 }

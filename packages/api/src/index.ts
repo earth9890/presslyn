@@ -10,3 +10,8 @@ export {
   type Services,
 } from "./trpc.js";
 export { createRestApp } from "./rest/app.js";
+export {
+  PublicCommentSubmissionSchema,
+  assertPublicCommentTarget,
+  type PublicCommentSubmission,
+} from "./comments/public-comment.js";

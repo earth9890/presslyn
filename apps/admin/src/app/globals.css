@@ -208,6 +208,20 @@ input[type="checkbox"] {
   opacity: 1;
 }
 
+@keyframes presslyn-admin-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
+}
+
+.presslyn-admin-progress {
+  animation: presslyn-admin-progress 1.1s ease-in-out infinite;
+  will-change: transform;
+}
+
 .presslyn-editor-shell {
   overflow: hidden;
   border: 1px solid var(--presslyn-border);

@@ -13,6 +13,8 @@ import {
   TermQuerySchema,
   CreateCommentSchema,
   CommentQuerySchema,
+  CreateSiteSchema,
+  UpdateSiteSchema,
 } from "./schemas.js";
 
 describe("CreateUserSchema", () => {
@@ -228,5 +230,39 @@ describe("CommentQuerySchema", () => {
 
   it("should reject limit over 100", () => {
     expect(() => CommentQuerySchema.parse({ limit: 101 })).toThrow();
+  });
+});
+
+describe("CreateSiteSchema", () => {
+  it("should accept valid site input", () => {
+    const result = CreateSiteSchema.parse({
+      name: "Docs",
+      domain: "docs.example.com",
+      path: "/",
+    });
+    expect(result.domain).toBe("docs.example.com");
+  });
+
+  it("should reject paths without a leading slash", () => {
+    expect(() =>
+      CreateSiteSchema.parse({
+        name: "Docs",
+        domain: "docs.example.com",
+        path: "docs",
+      })
+    ).toThrow();
+  });
+});
+
+describe("UpdateSiteSchema", () => {
+  it("should accept valid status updates", () => {
+    const result = UpdateSiteSchema.parse({ status: "archived" });
+    expect(result.status).toBe("archived");
+  });
+
+  it("should reject unknown fields", () => {
+    expect(() =>
+      UpdateSiteSchema.parse({ status: "active", isPrimary: true })
+    ).toThrow();
   });
 });

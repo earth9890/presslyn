@@ -1,0 +1,95 @@
+{
+  "$schema": "https://presslyn.dev/theme.schema.json",
+  "version": 1,
+  "settings": {
+    "color": {
+      "background": "#f3efe7",
+      "foreground": "#171717",
+      "muted": "#6d6257",
+      "accent": "#8b3d2d",
+      "border": "#d9cfbf",
+      "surface": "#fffdf9",
+      "darkBackground": "#161311",
+      "darkForeground": "#f3ede5",
+      "darkMuted": "#b4a89d",
+      "darkAccent": "#e28b73",
+      "darkBorder": "#342b24",
+      "darkSurface": "#1d1814"
+    },
+    "typography": {
+      "bodyFont": "ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "headingFont": "Georgia, \"Times New Roman\", serif"
+    },
+    "layout": {
+      "contentWidth": "56rem",
+      "wideWidth": "72rem",
+      "shellStyle": "tinted"
+    },
+    "presentation": {
+      "variant": "ink"
+    }
+  },
+  "templateParts": {
+    "header": {
+      "layout": "split",
+      "showDescription": true,
+      "showSearch": true
+    },
+    "footer": {
+      "layout": "columns",
+      "tagline": "A warmer magazine-style reading experience."
+    },
+    "sidebar": {
+      "layout": "sticky"
+    }
+  },
+  "templates": {
+    "index": {
+      "frame": "card",
+      "cardStyle": "feature",
+      "hero": "site-intro"
+    },
+    "single": {
+      "frame": "card",
+      "showSidebar": true
+    },
+    "page": {
+      "frame": "card"
+    },
+    "archive": {
+      "frame": "none",
+      "cardStyle": "feature",
+      "showSidebar": true
+    },
+    "category": {
+      "frame": "none",
+      "cardStyle": "feature",
+      "showSidebar": true
+    },
+    "tag": {
+      "frame": "none",
+      "cardStyle": "feature",
+      "showSidebar": true
+    },
+    "author": {
+      "frame": "none",
+      "cardStyle": "feature",
+      "showSidebar": true
+    },
+    "search": {
+      "frame": "none",
+      "cardStyle": "feature",
+      "showSidebar": true
+    },
+    "404": {
+      "frame": "card"
+    }
+  },
+  "styleVariations": [
+    {
+      "id": "terracotta",
+      "label": "Terracotta",
+      "accent": "#8b3d2d"
+    }
+  ]
+}

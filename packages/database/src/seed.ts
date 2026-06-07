@@ -11,7 +11,7 @@
 
 import { randomBytes } from "crypto";
 import { db } from "./connection.js";
-import { users, options, taxonomies, terms, posts } from "./schema.js";
+import { users, options, taxonomies, terms, posts, sites } from "./schema.js";
 import { sql } from "drizzle-orm";
 
 // We use argon2 via a dynamic import since this is a seed script
@@ -54,6 +54,38 @@ async function seed() {
     console.log("  = Admin user already exists, skipping");
   }
 
+  // ─── Primary Site ────────────────────────────────────────
+  console.log("Creating primary site...");
+  const [insertedPrimarySite] = await db
+    .insert(sites)
+    .values({
+      name: "Presslyn Site",
+      domain: "localhost:3000",
+      path: "/",
+      status: "active",
+      isPrimary: true,
+      meta: {},
+    })
+    .onConflictDoNothing({ target: [sites.domain, sites.path] })
+    .returning();
+
+  const primarySite =
+    insertedPrimarySite ??
+    (
+      await db
+        .select({ id: sites.id })
+        .from(sites)
+        .where(sql`${sites.isPrimary} = true`)
+        .limit(1)
+    )[0];
+
+  if (!primarySite) {
+    throw new Error("Primary site is required before seeding options");
+  }
+
+  if (insertedPrimarySite) console.log(`  + Primary site created (id: ${insertedPrimarySite.id})`);
+  else console.log("  = Primary site already exists");
+
   // ─── Default Options ─────────────────────────────────────
   console.log("Setting default options...");
   // Option keys follow WordPress naming (blogname, blogdescription, siteurl,
@@ -90,8 +122,13 @@ async function seed() {
   for (const opt of defaultOptions) {
     const result = await db
       .insert(options)
-      .values({ key: opt.key, value: opt.value, autoload: true })
-      .onConflictDoNothing({ target: options.key })
+      .values({
+        siteId: primarySite.id,
+        key: opt.key,
+        value: opt.value,
+        autoload: true,
+      })
+      .onConflictDoNothing({ target: [options.siteId, options.key] })
       .returning();
     if (result.length > 0) optionsInserted++;
   }

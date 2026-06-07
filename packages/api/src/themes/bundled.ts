@@ -15,4 +15,13 @@ export function registerBundledThemes(manager: ThemeManager): void {
       "The default Presslyn theme — a clean, fast, editorial layout with light and dark support.",
     author: "Presslyn",
   });
+
+  manager.register({
+    id: "presslyn-ink",
+    name: "Presslyn Ink",
+    version: "1.0.0",
+    description:
+      "A richer magazine-style public theme with framed article cards, warmer tones, and a broader reading layout.",
+    author: "Presslyn",
+  });
 }

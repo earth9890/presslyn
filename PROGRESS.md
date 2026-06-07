@@ -1,8 +1,8 @@
 # Presslyn — Development Progress
 
 **Started**: April 11, 2026
-**Current Phase**: Phase 4 — Public Frontend
-**Tests**: 296 passing (19 test files)
+**Current Phase**: Phase 4.1 + Phase 6.4 remaining
+**Tests**: 339 passing (28 test files)
 **Build**: 7 packages, zero errors
 
 ---
@@ -15,7 +15,7 @@
 | Phase 2: API Layer | COMPLETE | 2/2 |
 | Phase 3: Admin UI | COMPLETE | 12/12 |
 | Phase 4: Public Frontend | In Progress | 3/4 |
-| Phase 5: Extensibility | In Progress | 2/3 |
+| Phase 5: Extensibility | COMPLETE | 3/3 |
 | Phase 6: Operations | In Progress | 4/5 |
 
 ---
@@ -91,10 +91,10 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 
 | # | Module | Status | Date | Notes |
 |---|--------|--------|------|-------|
-| 4.1 | Theme System | Not Started | | Pluggable theme.json registry + block-grammar rendering. The public site currently ships a single baked-in default theme; the swappable theme engine is still ahead. |
+| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime plus a validated `theme.json`-style layer: bundled themes now ship parsed theme config (tokens, layout, template parts, template hierarchy, style-variation metadata), and the public site resolves templates for index/single/page/archive/category/tag/author/search/404 from the active theme. Appearance now changes both the public theme choice and the template chrome. Presslyn now also parses Gutenberg-style template markup and renders bundled theme parts and page-shell fragments for header/footer/404, the home hero, archive headers, single/page entry headers, theme-driven query loops + pagination for the home and archive bodies, template-driven single/page bodies including post content, term footers, comment lists, comment forms, and return links, plus a real `sidebar` template part with search/recent-post/category blocks for richer themes. Theme discovery now reads external themes from `content/themes/<id>/` via `theme.manifest.json` + `theme.json`, and the public runtime can load those filesystem themes too. Style variations are now persisted per theme through the Appearance screen and applied by the public runtime. |
 | 4.2 | Default Theme | VALIDATED | Jun 4, 2026 | A clean editorial default theme baked into `apps/web`: serif headlines, light/dark via CSS variables, header with category nav + search, footer, `.prose-content` styling for editor-authored HTML. |
 | 4.3 | SEO | VALIDATED | Jun 4, 2026 | Per-page metadata + Open Graph via Next `generateMetadata` (site-level template, article metadata on posts), JSON-LD BlogPosting/WebPage structured data, dynamic `sitemap.xml` (posts/pages/categories/tags), RSS 2.0 `/feed`, and `robots.txt` that respects the `blog_public` option. |
-| 4.4 | Public Pages | VALIDATED | Jun 4, 2026 | Home (paginated latest posts), single post & page (`/[slug]`, post-then-page resolution, published-only, comment display), category/tag/author archives, search, and a 404 — all SSR from the core services. |
+| 4.4 | Public Pages | VALIDATED | Jun 7, 2026 | Home (paginated latest posts), single post & page (`/[slug]`, post-then-page resolution, published-only), category/tag/author archives, search, and a 404 — all SSR from the core services. Public comment display and submission are now live: the web app ships a public comment form plus a hardened submission path that only accepts published/open targets, validates guest fields, rejects honeypot spam, and queues new comments for moderation. |
 
 ## Phase 5: Extensibility
 
@@ -102,7 +102,7 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 |---|--------|--------|------|-------|
 | 5.1 | Plugin System | VALIDATED | Jun 4, 2026 | Core `PluginManager` (manifest schema, register, activate/deactivate persisted to `active_plugins`, bootActivePlugins, activate/deactivate actions) over the hook system; 9 unit tests. Wired into `Services`, exposed via `/api/v1/plugins/*`, surfaced on the admin Plugins screen, with a bundled "Hello Presslyn" example. Filesystem discovery + dynamic import of external plugin packages is the remaining loader piece. |
 | 5.2 | Theme API | VALIDATED | Jun 4, 2026 | Core `ThemeManager` (manifest schema, register, list, getActive, activate persisted to `active_theme`, `switch_theme` action); 4 unit tests. Wired into `Services`, exposed via `/api/v1/themes/*`, surfaced on the admin Appearance screen, bundled "Presslyn Default". Customizer / child themes / theme.json rendering are part of the Phase 4.1 engine. |
-| 5.3 | Block Registration | Not Started | | Custom blocks, patterns, styles |
+| 5.3 | Block Registration | VALIDATED | Jun 7, 2026 | Added a core `BlockRegistry` with typed block manifests, default categories, custom category registration, patterns, styles, and optional server-side renderers. Wired into the shared services container and covered with 4 unit tests. Editor/UI integration remains part of the future theme/block engine work, but the registration API itself now exists and is validated. |
 
 ## Phase 6: Operations
 
@@ -111,12 +111,122 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 | 6.1 | Caching | VALIDATED | Jun 4, 2026 | Pluggable async object cache: `CacheStore` interface with `MemoryStore` (default, injectable clock) and a lazy-ioredis `RedisStore`, plus a WordPress-style `Transients` API (`get`/`set`/`delete`/`flush`/`remember`) and `cacheStoreFromEnv` (Redis when `REDIS_URL` set). 10 unit tests. Added alongside the existing per-request in-memory `CacheService` (untouched). Next.js ISR / CDN tuning is a deploy-time concern. |
 | 6.2 | Email | VALIDATED | Jun 4, 2026 | Core EmailService with a transport abstraction (LogTransport default, CapturingTransport for tests, nodemailer SmtpTransport lazily loaded, `transportFromEnv`), HTML+text templates (welcome, password reset, comment notification) with escaping, and `email_message` filter + `email_sent` action hooks. 6 unit tests. Wiring into auth/registration flows is pending a password-reset-token system. |
 | 6.3 | WP Importer | VALIDATED | Jun 4, 2026 | WXR importer completing the migration round-trip with the exporter: core `parseWxr` (fast-xml-parser, 7 round-trip tests through `buildWxr`) + idempotent `importWxr` (ensures categories/tags, maps authors to existing users by login, creates posts/pages with term assignment + comments, skips existing slugs). `POST /api/v1/import` (multipart, `import` capability, 25MB cap, parse errors → 400) and a Tools import button that reports a summary. Media re-download/re-linking still pending. |
-| 6.4 | Multisite | Not Started | | Network admin, site management |
+| 6.4 | Multisite | In Progress | Jun 7, 2026 | Foundation + runtime mapping + option isolation + post isolation + comment isolation + taxonomy isolation slices shipped: added a `sites` table + migration/seeded primary site, strict `CreateSite`/`UpdateSite` schemas, a `MultisiteService` with duplicate prevention, primary-site protection, and host/path site resolution, REST routes for list/create/update, a real `/network` admin screen, a public web runtime that resolves the current site per request, site-scoped options storage/read paths with legacy-schema fallback, site-scoped posts/pages, comment reads/submissions bound to the resolved site's content, and taxonomy terms/categories/tags now resolved per site in storage plus public archives/sidebar/sitemap flows. Media is still shared, and subdirectory rewrites are still pending. |
 | 6.5 | CLI Completion | VALIDATED | Jun 4, 2026 | `presslyn` CLI (commander) with service-backed commands: `status`, `user:create`, `user:list`, `post:list`, `export --out`, `import <file>`; `db:migrate`/`db:seed` delegate to the database package scripts. Live-validated against a real Postgres DB (created + migrated + seeded this session): status/lists work, and a full export → idempotent re-import → modified-import round-trip behaves correctly. |
 
 ---
 
 ## Changelog
+
+### Jun 7, 2026 — Phase 6.4 progress: site-scoped taxonomy terms
+- Added the next multisite persistence slice in the database layer: a new `terms.site_id` relationship plus a migration that attaches existing terms to the primary site and replaces the old global slug/taxonomy uniqueness with a site-aware constraint.
+- Extended `TaxonomyService` with optional site scoping for term creation, lookup, queries, counts, and tree loading while preserving a compatibility fallback for pre-migration databases that still use the legacy single-site terms schema.
+- Tightened hierarchical term safety during the multisite pass: parent-term validation now stays inside the same taxonomy and site, and term deletion only reparents descendants within the same site boundary.
+- Updated the public web runtime so category/tag archives, sidebar category lists, root-layout navigation categories, and sitemap term URLs all resolve against the current site instead of a shared global taxonomy pool.
+- Added a focused `TaxonomyService` multisite test suite covering scoped slug resolution, duplicate slugs across sites, and scoped term counts, bringing core coverage to **339 passing tests across 28 files**.
+- Validation: `pnpm --filter @presslyn/core test` passes (339 tests / 28 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 6.4 progress: site-scoped comments
+- Extended `CommentsService` with optional site scoping for comment reads, creation, moderation lookups, queries, and aggregate counts by joining comments back through the owning posts.
+- Updated the public entry page and the web comment-submission route so displayed comments, parent-comment validation, and new comment creation now all resolve against the current site's content boundary instead of a global comment pool.
+- Added a focused `CommentsService` multisite test suite covering scoped reads, scoped list queries, and rejection of cross-site comment creation, bringing core coverage to **336 passing tests across 27 files**.
+- Validation: `pnpm --filter @presslyn/core test` passes (336 tests / 27 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 6.4 progress: site-scoped posts/pages
+- Added the next content-isolation slice in persistence: a new `posts.site_id` relationship plus a migration that attaches existing posts to the primary site and replaces the global slug/type indexes with site-aware equivalents.
+- Extended `ContentService` with site-aware post resolution, creation, uniqueness checks, status counts, and archive queries while preserving a compatibility fallback for pre-migration databases that still use the legacy single-site posts schema.
+- Updated the public web runtime so home, entry, feed, sitemap, search, and archive post queries all scope to the resolved site instead of reading from one global posts bucket.
+- Added a focused `ContentService` multisite test suite covering slug resolution and slug uniqueness across sites, bringing core coverage to **333 passing tests across 26 files**.
+- Validation: `pnpm --filter @presslyn/core test` passes (333 tests / 26 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 6.4 progress: site-scoped options isolation
+- Added the next multisite persistence slice in the database layer: a new `options.site_id` relationship plus a migration that attaches existing options to the primary site and enforces per-site option uniqueness going forward.
+- Reworked `OptionsService` so option reads/writes/deletes can resolve against a specific site, default to the primary site when no scope is provided, and keep autoload caches isolated per site.
+- Added compatibility fallback inside `OptionsService` for pre-migration databases so builds and runtime reads degrade cleanly to the old single-site options schema until the new migration has been applied.
+- Updated the public runtime to read site settings and search-engine visibility from the resolved site's scoped options instead of always using one global option bucket.
+- Added a dedicated `OptionsService` test suite covering primary-site defaults, scoped reads, scoped writes, and filtered option listings, bringing core coverage to **330 passing tests across 25 files**.
+- Validation: `pnpm --filter @presslyn/core test` passes (330 tests / 25 files), `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 6.4 progress: public site resolution + domain-aware runtime
+- Extended `MultisiteService` with active-site resolution by normalized host + path, preferring the longest matching active site path and falling back to the primary site when no explicit match exists.
+- Added 4 more multisite unit tests around site resolution and fallback behavior, bringing the core suite to **324 passing tests across 24 files**.
+- Added web middleware that forwards request host, pathname, and protocol into the server-rendered app so the public runtime can resolve the current site per request instead of assuming a single global install.
+- Updated the public site settings/theme helpers so site records can now drive domain-aware title, description, canonical URL, language, and optional theme/style-variation overrides via site metadata while still falling back cleanly to the global options store.
+- Validation: `pnpm --filter @presslyn/core test` passes (324 tests / 24 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 6.4 progress: multisite foundation
+- Added the first multisite persistence layer: a new `sites` table with `(domain, path)` uniqueness, site lifecycle status, primary-site flag, JSON metadata, a migration, and an idempotent seeded primary site for local installs.
+- Added strict `CreateSiteSchema` / `UpdateSiteSchema` validation plus a core `MultisiteService` that lists, creates, updates, and resolves the primary site while normalizing domains/paths, rejecting duplicate site addresses, and preventing the primary site from being archived or deleted.
+- Wired the service into shared API services and exposed `GET /api/v1/sites`, `POST /api/v1/sites`, and `PUT /api/v1/sites/:id` behind the existing `manage_options` capability gate.
+- Added a new admin Network screen at `/network` with site creation, lifecycle actions, and live refresh feedback through the same admin navigation/loading system used elsewhere.
+- Validation: `pnpm --filter @presslyn/core test` passes (320 tests / 24 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 4.1 progress: sidebar template parts
+- Extended the shared theme config schema so themes can declare an optional `sidebar` template part and opt specific templates into sidebar layouts with `showSidebar`.
+- Added sidebar rendering blocks in the web template engine (`search-form`, `recent-posts`, `category-list`) plus a reusable sidebar data helper that feeds recent posts and category counts into theme parts.
+- Wired search, category/tag/author archives, and single-entry pages to render a two-column layout when the active theme provides a sidebar and the template opts into it.
+- Added `sidebar.html` files and `showSidebar` config to Presslyn Ink and the sample filesystem theme so the feature is exercised end to end immediately.
+- Validation: `pnpm --filter @presslyn/core test` passes (309 tests / 23 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 4.1 progress: template-driven single entry bodies
+- Extended the web template renderer with `post-content`, `post-terms`, `comments-list`, `comment-form`, and `back-link` blocks so single/page templates can own more than just the entry header.
+- Switched the single entry route to prefer full template-driven rendering for post/page bodies when those blocks exist, while preserving the previous route-level layout as the fallback path.
+- Updated the bundled themes and the sample filesystem theme so their `single.html` and `page.html` files now describe the content body, comment region, and return-link structure directly.
+- Validation: `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 4.1 progress: template-driven query loops and pagination
+- Extended the web template renderer with `query-loop` and `pagination` blocks so theme `index.html` and `archive.html` files can render post-card collections and page navigation directly instead of relying on hardcoded route components.
+- Switched the home page plus category/tag/author/search archives to prefer full template-driven body rendering when those theme files exist, while keeping the previous React layouts as fallbacks.
+- Updated the bundled themes and the sample filesystem theme so their `index.html` and `archive.html` files now describe both the framing copy and the post loop structure.
+- Validation: `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 4.1 progress: persisted style variations
+- Extended the core `ThemeManager` to persist a per-theme style variation selection in options storage and expose that selection through the registered-theme list.
+- Added a new theme REST action for style variation updates and expanded the admin Appearance screen so the active theme can switch between its declared style variations using accent-color swatches.
+- Updated the public runtime to read the selected variation for the active theme and apply its accent override through the shared CSS-variable layer, so appearance changes actually affect the live site.
+- Validation: `pnpm --filter @presslyn/core test` passes (309 tests / 23 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 4.4 complete: public comment submission + hardening
+- Added a shared public-comment submission schema/helper in `@presslyn/api` that requires guest name + email, rejects filled honeypot fields, only allows comments on published/open entries, and ensures parent comments belong to the same post.
+- Hardened both existing API entry points (`REST /comments` and the tRPC `comments.create` mutation) to use that validation before creating a pending comment.
+- Added a dedicated public web route, `POST /api/comments`, and a client-side `CommentForm` on entry pages so visitors can submit comments directly from the public site and receive moderation feedback without touching the admin app.
+- Validation: `pnpm --filter @presslyn/api test` passes (3 tests / 1 file), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 4.1 progress: filesystem theme discovery
+- Added a shared filesystem-theme loader in core that resolves the project `content/themes` directory, validates `theme.manifest.json`, requires a sibling `theme.json`, and discovers installable themes from disk. Added 3 unit tests for discovery, manifest validation, and path resolution.
+- Wired the service container to register discovered filesystem themes alongside bundled ones at startup, so the admin Appearance screen and activation flow can now see themes that live outside the hardcoded bundle.
+- Extended the public theme runtime to load active non-bundled themes from disk, including their `theme.json` config and HTML template files, rather than only supporting the two built-in themes.
+- Added a sample filesystem theme, `content/themes/presslyn-canvas`, with manifest, `theme.json`, and block-template files to exercise the new path end to end.
+- Validation: `pnpm --filter @presslyn/core test` passes (308 tests / 23 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes, and a direct runtime check resolves `content/themes` and discovers `presslyn-canvas`.
+
+### Jun 7, 2026 — Phase 4.1 progress: template-driven archive and entry shells
+- Extended the web template renderer so bundled theme templates can interpolate runtime values like `{{siteTitle}}`, `{{queryTitle}}`, `{{queryDescription}}`, `{{postTitle}}`, `{{postDate}}`, and `{{postAuthor}}`, plus a small `post-meta` block for article headers.
+- Added bundled `archive.html`, `single.html`, and `page.html` templates for both public themes, plus an `index.html` hero template for Presslyn Ink.
+- Switched the home page hero, archive headers (category/tag/author/search results), and single/page entry headers to theme-driven template rendering with hardcoded React fallbacks when a theme file is absent.
+- Validation: `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes.
+
+### Jun 7, 2026 — Phase 4.1 progress: block template parser + theme-part rendering
+- Added a core `parseBlockTemplate` parser for Gutenberg-style `<!-- wp:* -->` grammar, including nested blocks, self-closing blocks, preserved inner HTML, and malformed-template validation. Exported it from `@presslyn/core` and covered it with 3 unit tests, bringing core coverage to **305 tests across 22 files**.
+- Bundled both public themes with actual template-part source files (`header.html`, `footer.html`, `404.html`) and added a web-side `template-renderer` that maps parsed blocks into React for the current public theme runtime.
+- Switched the public `SiteHeader`, `SiteFooter`, and `not-found` shell over to theme-part rendering so the active theme now controls real template markup instead of only branching through hardcoded TS components.
+- Added `prebuild` scripts to the admin and web apps so standalone app builds always rebuild the dependent workspace packages first, avoiding stale core/api artifacts during production builds.
+- Validation: `pnpm --filter @presslyn/core test` passes (305 tests / 22 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 5.3 complete + admin navigation feedback + dependency hardening
+- **Phase 5.3 — Block Registration**: added a core `BlockRegistry` with strict Zod-validated block manifests, default categories, custom category registration, block patterns, block styles, and optional async server-side renderers. Exported from `@presslyn/core`, wired into the shared `Services` container, and covered with 4 unit tests — **Phase 5 is now COMPLETE (3/3)**.
+- **Admin perceived performance**: added a client-side admin navigation layer that prefetches routes, shows an immediate top-of-screen progress state during route transitions and refreshes, and upgraded the route `loading.tsx` into a fuller skeleton/loading surface. Wired this through the sidebar, topbar, primary actions, Plugins actions, and Theme activation so slow pages finally show feedback instead of silently hanging.
+- **Dependency/security hardening**: upgraded the audited stack (`next`, `hono`, `nodemailer`, `drizzle-orm`, `fast-xml-parser`, `vitest`, `turbo`, `drizzle-kit`, `typescript-eslint`) and added root `pnpm` overrides for the remaining transitive advisory packages (`brace-expansion`, `esbuild`, `postcss`). Reinstalled and revalidated the workspace cleanly.
+- Validation: `pnpm audit` clean, `pnpm typecheck` passes, `pnpm --filter @presslyn/core test` passes (300 tests / 20 files), `pnpm --filter @presslyn/admin build` passes, `pnpm --filter @presslyn/web build` passes.
+
+### Jun 7, 2026 — Phase 4.1 progress: active public theme switching
+- Replaced the previously baked-in public look with a real web-theme registry in `apps/web`, keyed off the core `active_theme` option via `services.themes.getActiveId()`.
+- Added a second bundled public theme, **Presslyn Ink**, and routed the shared header, footer, home listing, archive lists, search, and single-entry pages through theme variants so the Appearance screen now changes the public site, not just stored metadata.
+- Validation: `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
+
+### Jun 7, 2026 — Phase 4.1 progress: parsed theme config + template hierarchy
+- Added a shared `theme.json`-style parser in core (`ThemeJsonSchema`, `parseThemeJson`) with validation tests. Theme config now covers design tokens, layout widths, template parts, template hierarchy entries, and style-variation metadata.
+- Bundled public themes now ship actual `theme.json` files (`presslyn-default`, `presslyn-ink`) instead of only hardcoded TS branches. The web app resolves the active theme through parsed config and drives CSS variables, shell styling, header/footer layout, archive card style, single-page framing, search chrome, and 404 framing from template data.
+- Validation: `pnpm --filter @presslyn/core test` passes (302 tests / 21 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
 
 ### Jun 4, 2026 — Phase 5.2 + 3.9: Theme manager + Appearance (Phase 3 COMPLETE)
 - Core `ThemeManager` mirroring the plugin pattern: manifest schema, register, list, getActive, activate (persists `active_theme`, fires `switch_theme` with old/new). 4 unit tests — 296 core tests total.

@@ -23,8 +23,8 @@
     "@presslyn/core": "workspace:*",
     "@presslyn/database": "workspace:*",
     "@trpc/server": "^11.0.0",
-    "drizzle-orm": "^0.39.0",
-    "hono": "^4.12.12",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.21",
     "jsonwebtoken": "^9.0.3",
     "superjson": "^2.2.0",
     "zod": "^3.24.0"
@@ -33,6 +33,6 @@
     "@presslyn/config-ts": "workspace:*",
     "@types/jsonwebtoken": "^9.0.10",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.0"
   }
 }

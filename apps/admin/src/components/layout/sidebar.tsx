@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SidebarLeft01Icon, SidebarRightIcon } from "hugeicons-react";
 import { NAV_SECTIONS } from "@/config/navigation";
 import { cn } from "@/lib/utils";
+import { AdminNavLink } from "./admin-navigation";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -58,9 +58,10 @@ export function Sidebar({
 
                 return (
                   <li key={item.href} className="my-1">
-                    <Link
+                    <AdminNavLink
                       href={item.href}
                       onClick={onMobileClose}
+                      pendingLabel={`Opening ${item.label}`}
                       title={collapsed ? item.label : undefined}
                       className={cn(
                         "group flex min-h-11 items-center rounded-2xl border px-3 text-[13px] leading-5 transition-all duration-150",
@@ -86,7 +87,7 @@ export function Sidebar({
                       >
                         {item.label}
                       </span>
-                    </Link>
+                    </AdminNavLink>
                   </li>
                 );
               })}

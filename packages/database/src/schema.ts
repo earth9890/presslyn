@@ -29,6 +29,12 @@ export const commentStatusEnum = pgEnum("comment_status", [
   "closed",
 ]);
 
+export const siteStatusEnum = pgEnum("site_status", [
+  "active",
+  "archived",
+  "deleted",
+]);
+
 // ─── Users ───────────────────────────────────────────────────
 
 export const users = pgTable("users", {
@@ -49,6 +55,7 @@ export const posts = pgTable(
   "posts",
   {
     id: serial("id").primaryKey(),
+    siteId: integer("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
     authorId: integer("author_id")
       .notNull()
       .references(() => users.id),
@@ -69,9 +76,10 @@ export const posts = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
+    index("posts_site_idx").on(table.siteId),
     index("posts_author_idx").on(table.authorId),
-    index("posts_type_status_idx").on(table.postType, table.status),
-    uniqueIndex("posts_slug_type_idx").on(table.slug, table.postType),
+    index("posts_site_type_status_idx").on(table.siteId, table.postType, table.status),
+    uniqueIndex("posts_site_slug_type_idx").on(table.siteId, table.slug, table.postType),
     index("posts_parent_idx").on(table.parentId),
     index("posts_published_at_idx").on(table.publishedAt),
   ]
@@ -116,6 +124,7 @@ export const terms = pgTable(
   "terms",
   {
     id: serial("id").primaryKey(),
+    siteId: integer("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
     taxonomyId: integer("taxonomy_id")
       .notNull()
       .references(() => taxonomies.id, { onDelete: "cascade" }),
@@ -126,8 +135,9 @@ export const terms = pgTable(
     meta: jsonb("meta").$type<Record<string, unknown>>().default({}),
   },
   (table) => [
+    index("terms_site_idx").on(table.siteId),
     index("terms_taxonomy_idx").on(table.taxonomyId),
-    uniqueIndex("terms_slug_taxonomy_idx").on(table.slug, table.taxonomyId),
+    uniqueIndex("terms_site_slug_taxonomy_idx").on(table.siteId, table.slug, table.taxonomyId),
     index("terms_parent_idx").on(table.parentId),
   ]
 );
@@ -155,6 +165,7 @@ export const media = pgTable(
   "media",
   {
     id: serial("id").primaryKey(),
+    siteId: integer("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
     uploaderId: integer("uploader_id")
       .notNull()
       .references(() => users.id),
@@ -170,7 +181,9 @@ export const media = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
+    index("media_site_idx").on(table.siteId),
     index("media_uploader_idx").on(table.uploaderId),
+    index("media_site_created_at_idx").on(table.siteId, table.createdAt),
     index("media_mime_idx").on(table.mimeType),
   ]
 );
@@ -200,14 +213,43 @@ export const comments = pgTable(
   ]
 );
 
+// ─── Multisite ───────────────────────────────────────────────
+
+export const sites = pgTable(
+  "sites",
+  {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    domain: varchar("domain", { length: 255 }).notNull(),
+    path: varchar("path", { length: 255 }).notNull().default("/"),
+    status: siteStatusEnum("status").notNull().default("active"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    meta: jsonb("meta").$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("sites_domain_path_idx").on(table.domain, table.path),
+    index("sites_status_idx").on(table.status),
+  ]
+);
+
 // ─── Options (Key-Value Settings) ────────────────────────────
 
-export const options = pgTable("options", {
-  id: serial("id").primaryKey(),
-  key: varchar("key", { length: 255 }).notNull().unique(),
-  value: jsonb("value").$type<unknown>(),
-  autoload: boolean("autoload").notNull().default(true),
-});
+export const options = pgTable(
+  "options",
+  {
+    id: serial("id").primaryKey(),
+    siteId: integer("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+    key: varchar("key", { length: 255 }).notNull(),
+    value: jsonb("value").$type<unknown>(),
+    autoload: boolean("autoload").notNull().default(true),
+  },
+  (table) => [
+    uniqueIndex("options_site_key_idx").on(table.siteId, table.key),
+    index("options_site_idx").on(table.siteId),
+  ]
+);
 
 // ─── Sessions ────────────────────────────────────────────────
 

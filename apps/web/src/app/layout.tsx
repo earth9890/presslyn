@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { getSiteSettings } from "@/lib/site";
+import { getResolvedSite } from "@/lib/site";
 import { services } from "@/lib/services";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import {
+  getActivePublicTheme,
+  getThemeCssVariables,
+  getThemeMainClassName,
+  getThemeShellClassName,
+} from "@/themes/public-theme";
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getSiteSettings();
@@ -35,9 +42,17 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [site, categories] = await Promise.all([
+  const [site, categories, theme] = await Promise.all([
     getSiteSettings(),
-    services.taxonomy.getTermsWithCounts("category").catch(() => []),
+    getResolvedSite().then((resolvedSite) =>
+      services.taxonomy
+        .getTermsWithCounts(
+          "category",
+          resolvedSite ? { siteId: resolvedSite.id } : undefined
+        )
+        .catch(() => [])
+    ),
+    getActivePublicTheme(),
   ]);
 
   const navCategories = categories
@@ -45,17 +60,27 @@ export default async function RootLayout({
     .map((c) => ({ slug: c.slug, name: c.name }));
 
   return (
-    <html lang={site.language}>
-      <body className="flex min-h-screen flex-col">
+    <html
+      lang={site.language}
+      data-site-theme={theme.id}
+      data-theme-variation={theme.activeStyleVariationId ?? "default"}
+    >
+      <body
+        className={`flex min-h-screen flex-col ${theme.bodyClassName}`}
+        style={getThemeCssVariables(theme)}
+      >
+        <div className={getThemeShellClassName(theme)}>
         <SiteHeader
           title={site.title}
           description={site.description}
           categories={navCategories}
+          theme={theme}
         />
-        <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-          {children}
+        <main className={getThemeMainClassName(theme)}>
+          <div>{children}</div>
         </main>
-        <SiteFooter title={site.title} />
+        <SiteFooter title={site.title} theme={theme} />
+        </div>
       </body>
     </html>
   );

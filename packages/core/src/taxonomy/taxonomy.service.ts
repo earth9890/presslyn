@@ -7,7 +7,7 @@
 
 import { eq, and, like, desc, asc, sql, isNull } from "drizzle-orm";
 import { type Database } from "@presslyn/database";
-import { taxonomies, terms, postTerms } from "@presslyn/database";
+import { taxonomies, terms, postTerms, posts, sites } from "@presslyn/database";
 import { hooks } from "../hooks.js";
 import { NotFoundError, ValidationError } from "../errors.js";
 import {
@@ -61,6 +61,13 @@ export interface TermQueryOptions {
   offset?: number;
 }
 
+export interface TaxonomyScope {
+  siteId?: number;
+}
+
+type TermRow = typeof terms.$inferSelect;
+type CreateTermRow = typeof terms.$inferInsert;
+
 /**
  * Maximum number of terms that getTermTree will load.
  * Taxonomies exceeding this limit will cause an error to prevent
@@ -71,7 +78,85 @@ const TERM_TREE_MAX = 5000;
 // ─── Service ───────────────────────────────────────────────
 
 export class TaxonomyService {
+  private primarySiteId: number | null = null;
+  private legacySingleSiteMode = false;
+
   constructor(private db: Database) {}
+
+  private isMissingMultisiteSchemaError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const causeMessage =
+      error instanceof Error && error.cause
+        ? error.cause instanceof Error
+          ? error.cause.message
+          : String(error.cause)
+        : "";
+    const text = `${message}\n${causeMessage}`;
+    return (
+      text.includes('relation "sites" does not exist') ||
+      text.includes('column "site_id" does not exist')
+    );
+  }
+
+  private async getPrimarySiteId(): Promise<number> {
+    if (this.legacySingleSiteMode) return 1;
+    if (this.primarySiteId !== null) return this.primarySiteId;
+
+    let primary;
+    try {
+      [primary] = await this.db
+        .select({ id: sites.id })
+        .from(sites)
+        .where(eq(sites.isPrimary, true))
+        .limit(1);
+    } catch (error) {
+      if (this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return 1;
+      }
+      throw error;
+    }
+
+    if (!primary) {
+      throw new Error("Primary site is not configured");
+    }
+
+    this.primarySiteId = primary.id;
+    return primary.id;
+  }
+
+  private async resolveSiteId(scope?: TaxonomyScope): Promise<number> {
+    if (scope?.siteId !== undefined) return scope.siteId;
+    return this.getPrimarySiteId();
+  }
+
+  private selectLegacyTerms() {
+    return this.db.select({
+      id: terms.id,
+      siteId: sql<number>`1`,
+      taxonomyId: terms.taxonomyId,
+      name: terms.name,
+      slug: terms.slug,
+      description: terms.description,
+      parentId: terms.parentId,
+      meta: terms.meta,
+    });
+  }
+
+  private async validateParentTerm(
+    parentId: number | undefined | null,
+    taxonomyId: number,
+    scope?: TaxonomyScope
+  ): Promise<void> {
+    if (parentId === undefined || parentId === null) {
+      return;
+    }
+
+    const parent = await this.getTermById(parentId, scope);
+    if (parent.taxonomyId !== taxonomyId) {
+      throw new ValidationError("Parent term must belong to the same taxonomy");
+    }
+  }
 
   // ─── Taxonomies ────────────────────────────────────────
 
@@ -117,9 +202,10 @@ export class TaxonomyService {
 
   // ─── Terms ─────────────────────────────────────────────
 
-  async createTerm(input: CreateTermInput) {
+  async createTerm(input: CreateTermInput, scope?: TaxonomyScope): Promise<TermRow> {
     // Validate input with Zod schema
     const parsed = CreateTermSchema.parse(input);
+    const siteId = await this.resolveSiteId(scope);
 
     const taxonomy = await this.getTaxonomy(parsed.taxonomySlug);
 
@@ -129,62 +215,134 @@ export class TaxonomyService {
       );
     }
 
+    await this.validateParentTerm(parsed.parentId, taxonomy.id, scope);
+
     const slug = parsed.slug || generateSlug(parsed.name);
 
     // Check uniqueness within taxonomy
-    const [existing] = await this.db
-      .select({ id: terms.id })
-      .from(terms)
-      .where(
-        and(eq(terms.slug, slug), eq(terms.taxonomyId, taxonomy.id))
-      )
-      .limit(1);
+    let existing;
+    try {
+      [existing] = await this.db
+        .select({ id: terms.id })
+        .from(terms)
+        .where(
+          and(
+            eq(terms.slug, slug),
+            eq(terms.taxonomyId, taxonomy.id),
+            ...(this.legacySingleSiteMode ? [] : [eq(terms.siteId, siteId)])
+          )
+        )
+        .limit(1);
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return this.createTerm(input, scope);
+      }
+      throw error;
+    }
 
     if (existing) throw new ValidationError(`Term slug "${slug}" already exists in this taxonomy`);
 
+    const values = {
+      siteId,
+      taxonomyId: taxonomy.id,
+      name: parsed.name,
+      slug,
+      description: parsed.description ?? "",
+      parentId: parsed.parentId,
+    } satisfies CreateTermRow;
+
     const [term] = await this.db
       .insert(terms)
-      .values({
-        taxonomyId: taxonomy.id,
-        name: parsed.name,
-        slug,
-        description: parsed.description ?? "",
-        parentId: parsed.parentId,
-      })
+      .values(
+        this.legacySingleSiteMode
+          ? ({
+              taxonomyId: taxonomy.id,
+              name: parsed.name,
+              slug,
+              description: parsed.description ?? "",
+              parentId: parsed.parentId,
+            } as never)
+          : values
+      )
       .returning();
 
     await hooks.doAction("create_term", term, taxonomy);
     return term;
   }
 
-  async getTermById(id: number) {
-    const [term] = await this.db
-      .select()
-      .from(terms)
-      .where(eq(terms.id, id))
-      .limit(1);
+  async getTermById(id: number, scope?: TaxonomyScope) {
+    const siteId = await this.resolveSiteId(scope);
+    let term;
+    try {
+      [term] = this.legacySingleSiteMode
+        ? await this.selectLegacyTerms().from(terms).where(eq(terms.id, id)).limit(1)
+        : await this.db
+            .select()
+            .from(terms)
+            .where(and(eq(terms.id, id), eq(terms.siteId, siteId)))
+            .limit(1);
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        [term] = await this.selectLegacyTerms().from(terms).where(eq(terms.id, id)).limit(1);
+      } else {
+        throw error;
+      }
+    }
 
     if (!term) throw new NotFoundError("Term", id);
     return term;
   }
 
-  async getTermBySlug(slug: string, taxonomySlug: string) {
+  async getTermBySlug(
+    slug: string,
+    taxonomySlug: string,
+    scope?: TaxonomyScope
+  ): Promise<TermRow | null> {
+    const siteId = await this.resolveSiteId(scope);
     const taxonomy = await this.getTaxonomy(taxonomySlug);
 
-    const [term] = await this.db
-      .select()
-      .from(terms)
-      .where(and(eq(terms.slug, slug), eq(terms.taxonomyId, taxonomy.id)))
-      .limit(1);
+    let term;
+    try {
+      [term] = this.legacySingleSiteMode
+        ? await this.selectLegacyTerms()
+            .from(terms)
+            .where(and(eq(terms.slug, slug), eq(terms.taxonomyId, taxonomy.id)))
+            .limit(1)
+        : await this.db
+            .select()
+            .from(terms)
+            .where(
+              and(eq(terms.slug, slug), eq(terms.taxonomyId, taxonomy.id), eq(terms.siteId, siteId))
+            )
+            .limit(1);
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        [term] = await this.selectLegacyTerms()
+          .from(terms)
+          .where(and(eq(terms.slug, slug), eq(terms.taxonomyId, taxonomy.id)))
+          .limit(1);
+      } else {
+        throw error;
+      }
+    }
 
     return term ?? null;
   }
 
-  async updateTerm(id: number, input: UpdateTermInput) {
+  async updateTerm(id: number, input: UpdateTermInput, scope?: TaxonomyScope) {
     // Validate input with Zod schema
     const parsed = UpdateTermSchema.parse(input);
 
-    const existing = await this.getTermById(id); // Throws if not found
+    const existing = await this.getTermById(id, scope); // Throws if not found
+
+    if (parsed.parentId === id) {
+      throw new ValidationError("Term cannot be its own parent");
+    }
+
+    await this.validateParentTerm(parsed.parentId, existing.taxonomyId, scope);
 
     // Validate slug uniqueness when slug is being changed
     if (parsed.slug !== undefined && parsed.slug !== existing.slug) {
@@ -194,7 +352,8 @@ export class TaxonomyService {
         .where(
           and(
             eq(terms.slug, parsed.slug),
-            eq(terms.taxonomyId, existing.taxonomyId)
+            eq(terms.taxonomyId, existing.taxonomyId),
+            ...(this.legacySingleSiteMode ? [] : [eq(terms.siteId, existing.siteId)])
           )
         )
         .limit(1);
@@ -215,15 +374,19 @@ export class TaxonomyService {
     const [updated] = await this.db
       .update(terms)
       .set(updates)
-      .where(eq(terms.id, id))
+      .where(
+        this.legacySingleSiteMode
+          ? eq(terms.id, id)
+          : and(eq(terms.id, id), eq(terms.siteId, existing.siteId))
+      )
       .returning();
 
     await hooks.doAction("edit_term", updated);
     return updated;
   }
 
-  async deleteTerm(id: number) {
-    const term = await this.getTermById(id);
+  async deleteTerm(id: number, scope?: TaxonomyScope) {
+    const term = await this.getTermById(id, scope);
 
     // Wrap all operations in a transaction for atomicity
     await this.db.transaction(async (tx) => {
@@ -233,18 +396,32 @@ export class TaxonomyService {
       await tx
         .update(terms)
         .set({ parentId: term.parentId })
-        .where(eq(terms.parentId, id));
+        .where(
+          this.legacySingleSiteMode
+            ? eq(terms.parentId, id)
+            : and(eq(terms.parentId, id), eq(terms.siteId, term.siteId))
+        );
       // Delete term
-      await tx.delete(terms).where(eq(terms.id, id));
+      await tx
+        .delete(terms)
+        .where(
+          this.legacySingleSiteMode
+            ? eq(terms.id, id)
+            : and(eq(terms.id, id), eq(terms.siteId, term.siteId))
+        );
     });
 
     await hooks.doAction("delete_term", term);
     return true;
   }
 
-  async queryTerms(opts: TermQueryOptions) {
+  async queryTerms(
+    opts: TermQueryOptions,
+    scope?: TaxonomyScope
+  ): Promise<{ terms: TermRow[]; total: number }> {
     // Validate input with Zod schema
     const parsed = TermQuerySchema.parse(opts);
+    const siteId = await this.resolveSiteId(scope);
 
     const {
       taxonomySlug,
@@ -260,6 +437,9 @@ export class TaxonomyService {
 
     const taxonomy = await this.getTaxonomy(taxonomySlug);
     const conditions = [eq(terms.taxonomyId, taxonomy.id)];
+    if (!this.legacySingleSiteMode) {
+      conditions.push(eq(terms.siteId, siteId));
+    }
 
     if (parentId !== undefined) {
       if (parentId === null) {
@@ -280,18 +460,28 @@ export class TaxonomyService {
 
     const orderFn = order === "desc" ? desc : asc;
 
-    const rows = await this.db
-      .select()
-      .from(terms)
-      .where(and(...conditions))
-      .orderBy(orderFn(orderCol))
-      .limit(limit)
-      .offset(offset);
+    let rows;
+    let countResult;
+    try {
+      rows = await this.db
+        .select()
+        .from(terms)
+        .where(and(...conditions))
+        .orderBy(orderFn(orderCol))
+        .limit(limit)
+        .offset(offset);
 
-    const [countResult] = await this.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(terms)
-      .where(and(...conditions));
+      [countResult] = await this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(terms)
+        .where(and(...conditions));
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return this.queryTerms(opts, scope);
+      }
+      throw error;
+    }
 
     return { terms: rows, total: countResult.count };
   }
@@ -299,19 +489,43 @@ export class TaxonomyService {
   /**
    * Get term with post count.
    */
-  async getTermsWithCounts(taxonomySlug: string) {
+  async getTermsWithCounts(
+    taxonomySlug: string,
+    scope?: TaxonomyScope
+  ): Promise<Array<TermRow & { count: number }>> {
+    const siteId = await this.resolveSiteId(scope);
     const taxonomy = await this.getTaxonomy(taxonomySlug);
 
-    const result = await this.db
-      .select({
-        term: terms,
-        count: sql<number>`count(${postTerms.postId})::int`,
-      })
-      .from(terms)
-      .leftJoin(postTerms, eq(terms.id, postTerms.termId))
-      .where(eq(terms.taxonomyId, taxonomy.id))
-      .groupBy(terms.id)
-      .orderBy(asc(terms.name));
+    let result;
+    try {
+      result = await this.db
+        .select({
+          term: terms,
+          count: sql<number>`count(${posts.id})::int`,
+        })
+        .from(terms)
+        .leftJoin(postTerms, eq(terms.id, postTerms.termId))
+        .leftJoin(
+          posts,
+          this.legacySingleSiteMode
+            ? eq(postTerms.postId, posts.id)
+            : and(eq(postTerms.postId, posts.id), eq(posts.siteId, siteId))
+        )
+        .where(
+          and(
+            eq(terms.taxonomyId, taxonomy.id),
+            ...(this.legacySingleSiteMode ? [] : [eq(terms.siteId, siteId)])
+          )
+        )
+        .groupBy(terms.id)
+        .orderBy(asc(terms.name));
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return this.getTermsWithCounts(taxonomySlug, scope);
+      }
+      throw error;
+    }
 
     return result.map((r) => ({ ...r.term, count: r.count }));
   }
@@ -323,13 +537,31 @@ export class TaxonomyService {
    * Limited to TERM_TREE_MAX (5 000) terms — taxonomies exceeding this
    * limit will throw a ValidationError to prevent unbounded memory use.
    */
-  async getTermTree(taxonomySlug: string) {
+  async getTermTree(
+    taxonomySlug: string,
+    scope?: TaxonomyScope
+  ): Promise<TermTreeNode[]> {
+    const siteId = await this.resolveSiteId(scope);
     // First, count terms to enforce the safety limit
     const taxonomy = await this.getTaxonomy(taxonomySlug);
-    const [countResult] = await this.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(terms)
-      .where(eq(terms.taxonomyId, taxonomy.id));
+    let countResult;
+    try {
+      [countResult] = await this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(terms)
+        .where(
+          and(
+            eq(terms.taxonomyId, taxonomy.id),
+            ...(this.legacySingleSiteMode ? [] : [eq(terms.siteId, siteId)])
+          )
+        );
+    } catch (error) {
+      if (!this.legacySingleSiteMode && this.isMissingMultisiteSchemaError(error)) {
+        this.legacySingleSiteMode = true;
+        return this.getTermTree(taxonomySlug, scope);
+      }
+      throw error;
+    }
 
     if (countResult.count > TERM_TREE_MAX) {
       throw new ValidationError(
@@ -341,7 +573,7 @@ export class TaxonomyService {
     const { terms: allTerms } = await this.queryTerms({
       taxonomySlug,
       limit: TERM_TREE_MAX,
-    });
+    }, scope);
 
     const nodeMap = new Map<number, TermTreeNode>();
     const roots: TermTreeNode[] = [];

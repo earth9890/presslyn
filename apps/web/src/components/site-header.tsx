@@ -1,46 +1,37 @@
-import Link from "next/link";
+import type { PublicThemeDefinition } from "@/themes/public-theme";
+import { renderThemeTemplatePart } from "@/themes/template-renderer";
 
 interface SiteHeaderProps {
   title: string;
   description: string;
   categories: { slug: string; name: string }[];
+  theme: PublicThemeDefinition;
 }
 
-export function SiteHeader({ title, description, categories }: SiteHeaderProps) {
+export async function SiteHeader({
+  title,
+  description,
+  categories,
+  theme,
+}: SiteHeaderProps) {
+  const { header } = theme.config.templateParts;
+  const content = await renderThemeTemplatePart(theme, "header", {
+    theme,
+    siteTitle: title,
+    siteDescription: header.showDescription ? description : undefined,
+    categories,
+  });
+
   return (
     <header className="border-b border-border">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-8">
-        <div className="flex flex-col gap-1">
-          <Link
-            href="/"
-            className="font-serif text-3xl font-bold tracking-tight text-foreground hover:text-accent"
-          >
-            {title}
-          </Link>
-          {description ? (
-            <p className="text-sm text-muted">{description}</p>
-          ) : null}
-        </div>
-        <nav className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
-          <Link href="/" className="text-muted transition-colors hover:text-foreground">
-            Home
-          </Link>
-          {categories.slice(0, 6).map((c) => (
-            <Link
-              key={c.slug}
-              href={`/category/${c.slug}`}
-              className="text-muted transition-colors hover:text-foreground"
-            >
-              {c.name}
-            </Link>
-          ))}
-          <Link
-            href="/search"
-            className="ml-auto text-muted transition-colors hover:text-foreground"
-          >
-            Search
-          </Link>
-        </nav>
+      <div
+        className={
+          header.layout === "split"
+            ? "mx-auto flex max-w-5xl flex-col gap-6 px-5 py-8 sm:px-6 lg:px-8"
+            : "mx-auto flex max-w-3xl flex-col gap-4 px-6 py-8"
+        }
+      >
+        {content}
       </div>
     </header>
   );

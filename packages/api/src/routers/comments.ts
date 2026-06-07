@@ -5,10 +5,14 @@
  */
 
 import { z } from "zod";
-import { CreateCommentSchema, CommentQuerySchema } from "@presslyn/core";
+import { CommentQuerySchema } from "@presslyn/core";
 import { router, publicProcedure, protectedProcedure } from "../trpc.js";
 import { handleServiceCall } from "./errors.js";
 import { requireCapability, hasCapability } from "./auth-helpers.js";
+import {
+  assertPublicCommentTarget,
+  PublicCommentSubmissionSchema,
+} from "../comments/public-comment.js";
 
 export const commentsRouter = router({
   /**
@@ -36,11 +40,17 @@ export const commentsRouter = router({
    * Create a new comment (public — guests can comment).
    */
   create: publicProcedure
-    .input(CreateCommentSchema)
+    .input(PublicCommentSubmissionSchema)
     .mutation(async ({ ctx, input }) => {
-      return handleServiceCall(() =>
-        ctx.services.comments.createComment(input)
-      );
+      return handleServiceCall(async () => {
+        await assertPublicCommentTarget(
+          ctx.services.content,
+          ctx.services.comments,
+          input
+        );
+        const { website: _website, ...commentInput } = input;
+        return ctx.services.comments.createComment(commentInput);
+      });
     }),
 
   /**
