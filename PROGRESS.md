@@ -91,7 +91,7 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 
 | # | Module | Status | Date | Notes |
 |---|--------|--------|------|-------|
-| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime plus a validated `theme.json`-style layer: bundled themes now ship parsed theme config (tokens, layout, template parts, template hierarchy, style-variation metadata), and the public site resolves templates for index/single/page/archive/category/tag/author/search/404 from the active theme. Appearance now changes both the public theme choice and the template chrome. Presslyn now also parses Gutenberg-style template markup and renders bundled theme parts for header/footer/404; broader block-template coverage is still pending. |
+| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime plus a validated `theme.json`-style layer: bundled themes now ship parsed theme config (tokens, layout, template parts, template hierarchy, style-variation metadata), and the public site resolves templates for index/single/page/archive/category/tag/author/search/404 from the active theme. Appearance now changes both the public theme choice and the template chrome. Presslyn now also parses Gutenberg-style template markup and renders bundled theme parts and page-shell fragments for header/footer/404, the home hero, archive headers, and single/page entry headers; full body/comment/query-loop block coverage is still pending. |
 | 4.2 | Default Theme | VALIDATED | Jun 4, 2026 | A clean editorial default theme baked into `apps/web`: serif headlines, light/dark via CSS variables, header with category nav + search, footer, `.prose-content` styling for editor-authored HTML. |
 | 4.3 | SEO | VALIDATED | Jun 4, 2026 | Per-page metadata + Open Graph via Next `generateMetadata` (site-level template, article metadata on posts), JSON-LD BlogPosting/WebPage structured data, dynamic `sitemap.xml` (posts/pages/categories/tags), RSS 2.0 `/feed`, and `robots.txt` that respects the `blog_public` option. |
 | 4.4 | Public Pages | VALIDATED | Jun 4, 2026 | Home (paginated latest posts), single post & page (`/[slug]`, post-then-page resolution, published-only, comment display), category/tag/author archives, search, and a 404 — all SSR from the core services. |
@@ -117,6 +117,12 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 ---
 
 ## Changelog
+
+### Jun 7, 2026 — Phase 4.1 progress: template-driven archive and entry shells
+- Extended the web template renderer so bundled theme templates can interpolate runtime values like `{{siteTitle}}`, `{{queryTitle}}`, `{{queryDescription}}`, `{{postTitle}}`, `{{postDate}}`, and `{{postAuthor}}`, plus a small `post-meta` block for article headers.
+- Added bundled `archive.html`, `single.html`, and `page.html` templates for both public themes, plus an `index.html` hero template for Presslyn Ink.
+- Switched the home page hero, archive headers (category/tag/author/search results), and single/page entry headers to theme-driven template rendering with hardcoded React fallbacks when a theme file is absent.
+- Validation: `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes.
 
 ### Jun 7, 2026 — Phase 4.1 progress: block template parser + theme-part rendering
 - Added a core `parseBlockTemplate` parser for Gutenberg-style `<!-- wp:* -->` grammar, including nested blocks, self-closing blocks, preserved inner HTML, and malformed-template validation. Exported it from `@presslyn/core` and covered it with 3 unit tests, bringing core coverage to **305 tests across 22 files**.

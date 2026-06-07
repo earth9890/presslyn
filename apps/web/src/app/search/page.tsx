@@ -4,6 +4,7 @@ import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { ArchiveList } from "@/components/archive-list";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
+import { renderThemeTemplate } from "@/themes/template-renderer";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,13 @@ export default async function SearchPage({
         offset: (page - 1) * limit,
       })
     : { posts: [], total: 0 };
+  const resultsHeader = query
+    ? await renderThemeTemplate(theme, "archive", {
+        siteTitle: site.title,
+        queryTitle: `Results for "${query}"`,
+        queryDescription: `${result.total} result${result.total === 1 ? "" : "s"}`,
+      })
+    : null;
 
   return (
     <div className="space-y-8">
@@ -74,6 +82,7 @@ export default async function SearchPage({
         <ArchiveList
           title={`Results for “${query}”`}
           description={`${result.total} result${result.total === 1 ? "" : "s"}`}
+          headerContent={resultsHeader}
           posts={await toPostCards(result.posts)}
           theme={theme}
           frame={template.frame}

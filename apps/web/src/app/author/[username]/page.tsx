@@ -6,6 +6,7 @@ import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { ArchiveList } from "@/components/archive-list";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
+import { renderThemeTemplate } from "@/themes/template-renderer";
 
 export const dynamic = "force-dynamic";
 
@@ -61,11 +62,17 @@ export default async function AuthorPage({
     limit,
     offset: (page - 1) * limit,
   });
+  const headerContent = await renderThemeTemplate(theme, "archive", {
+    siteTitle: site.title,
+    queryTitle: author.displayName,
+    queryDescription: `Posts by ${author.displayName}`,
+  });
 
   return (
     <ArchiveList
       title={author.displayName}
       description={`Posts by ${author.displayName}`}
+      headerContent={headerContent}
       posts={await toPostCards(posts)}
       theme={theme}
       frame={template.frame}

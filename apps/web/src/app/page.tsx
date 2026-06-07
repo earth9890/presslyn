@@ -4,6 +4,7 @@ import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { PostCard } from "@/components/post-card";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
+import { renderThemeTemplate } from "@/themes/template-renderer";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,13 @@ export default async function HomePage({
 
   const cards = await toPostCards(posts);
   const totalPages = Math.max(1, Math.ceil(total / limit));
+  const heroContent =
+    template.hero === "site-intro"
+      ? await renderThemeTemplate(theme, "index", {
+          siteTitle: site.title,
+          queryDescription: `Latest stories rendered through the ${theme.name} public theme layer.`,
+        })
+      : null;
 
   if (cards.length === 0) {
     return (
@@ -47,15 +55,19 @@ export default async function HomePage({
     <div className="space-y-8">
       {template.hero === "site-intro" ? (
         <section className="rounded-[1.8rem] border border-border bg-surface px-6 py-7">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-            Active theme
-          </p>
-          <h1 className="mt-2 font-serif text-4xl font-bold leading-tight text-foreground">
-            {site.title}
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-            Latest stories rendered through the {theme.name} public theme layer.
-          </p>
+          {heroContent ?? (
+            <>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+                Active theme
+              </p>
+              <h1 className="mt-2 font-serif text-4xl font-bold leading-tight text-foreground">
+                {site.title}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+                Latest stories rendered through the {theme.name} public theme layer.
+              </p>
+            </>
+          )}
         </section>
       ) : null}
       {cards.map((post) => (

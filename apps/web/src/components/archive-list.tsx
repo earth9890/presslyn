@@ -5,6 +5,7 @@ import type { PublicThemeDefinition } from "@/themes/public-theme";
 interface ArchiveListProps {
   title: string;
   description?: string;
+  headerContent?: React.ReactNode;
   posts: PostCardData[];
   page: number;
   totalPages: number;
@@ -32,6 +33,7 @@ function pageHref(
 export function ArchiveList({
   title,
   description,
+  headerContent,
   posts,
   page,
   totalPages,
@@ -51,16 +53,20 @@ export function ArchiveList({
             : "mb-8 border-b border-border pb-6"
         }
       >
-        <h1
-          className={
-            frame === "card"
-              ? "font-serif text-4xl font-bold leading-tight"
-              : "font-serif text-3xl font-bold"
-          }
-        >
-          {title}
-        </h1>
-        {description ? <p className="mt-2 text-muted">{description}</p> : null}
+        {headerContent ?? (
+          <>
+            <h1
+              className={
+                frame === "card"
+                  ? "font-serif text-4xl font-bold leading-tight"
+                  : "font-serif text-3xl font-bold"
+              }
+            >
+              {title}
+            </h1>
+            {description ? <p className="mt-2 text-muted">{description}</p> : null}
+          </>
+        )}
       </header>
 
       {posts.length === 0 ? (

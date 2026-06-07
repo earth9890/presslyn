@@ -6,6 +6,7 @@ import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
 import { ArchiveList } from "@/components/archive-list";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
+import { renderThemeTemplate } from "@/themes/template-renderer";
 
 export const dynamic = "force-dynamic";
 
@@ -61,11 +62,17 @@ export default async function CategoryPage({
     limit,
     offset: (page - 1) * limit,
   });
+  const headerContent = await renderThemeTemplate(theme, "archive", {
+    siteTitle: site.title,
+    queryTitle: `Category: ${term.name}`,
+    queryDescription: term.description || undefined,
+  });
 
   return (
     <ArchiveList
       title={`Category: ${term.name}`}
       description={term.description || undefined}
+      headerContent={headerContent}
       posts={await toPostCards(posts)}
       theme={theme}
       frame={template.frame}

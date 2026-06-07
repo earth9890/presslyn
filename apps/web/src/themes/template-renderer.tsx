@@ -8,34 +8,75 @@ import {
 } from "@presslyn/core";
 import type { PublicThemeDefinition } from "./public-theme";
 
-type TemplatePartName = "header" | "footer" | "404";
+type TemplateName =
+  | "header"
+  | "footer"
+  | "404"
+  | "index"
+  | "archive"
+  | "single"
+  | "page";
 
 interface TemplateContext {
   siteTitle: string;
   siteDescription?: string;
   categories?: { slug: string; name: string }[];
+  queryTitle?: string;
+  queryDescription?: string;
+  postTitle?: string;
+  postDate?: string;
+  postDateIso?: string;
+  postAuthor?: string;
 }
 
 const loadTemplateBlocks = cache(
-  async (themeId: string, part: TemplatePartName): Promise<ParsedTemplateBlock[]> => {
+  async (themeId: string, templateName: TemplateName): Promise<ParsedTemplateBlock[] | null> => {
     const templatePath = path.join(
       process.cwd(),
       "src/themes/bundled",
       themeId,
-      `${part}.html`
+      `${templateName}.html`
     );
-    const raw = await fs.readFile(templatePath, "utf8");
+    let raw: string;
+    try {
+      raw = await fs.readFile(templatePath, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return null;
+      }
+      throw error;
+    }
     return parseBlockTemplate(raw);
   }
 );
 
-export async function renderThemeTemplatePart(
+export async function renderThemeTemplate(
   theme: PublicThemeDefinition,
-  part: TemplatePartName,
+  templateName: TemplateName,
   context: TemplateContext
 ) {
-  const blocks = await loadTemplateBlocks(theme.id, part);
-  return blocks.map((block, index) => renderTemplateBlock(block, context, `${part}-${index}`));
+  const blocks = await loadTemplateBlocks(theme.id, templateName);
+  if (!blocks) {
+    return null;
+  }
+  return blocks.map((block, index) =>
+    renderTemplateBlock(block, context, `${templateName}-${index}`)
+  );
+}
+
+export async function renderThemeTemplatePart(
+  theme: PublicThemeDefinition,
+  part: "header" | "footer" | "404",
+  context: TemplateContext
+) {
+  return renderThemeTemplate(theme, part, context);
+}
+
+function interpolateTemplateString(value: string, context: TemplateContext): string {
+  return value.replace(/\{\{\s*([a-zA-Z0-9]+)\s*\}\}/g, (_, key: string) => {
+    const resolved = context[key as keyof TemplateContext];
+    return typeof resolved === "string" ? resolved : "";
+  });
 }
 
 function renderTemplateBlock(
@@ -139,7 +180,9 @@ function renderTemplateBlock(
           <h1
             key={key}
             className="mt-4 font-serif text-2xl font-bold"
-            dangerouslySetInnerHTML={{ __html: content }}
+            dangerouslySetInnerHTML={{
+              __html: interpolateTemplateString(content, context),
+            }}
           />
         );
       }
@@ -148,7 +191,9 @@ function renderTemplateBlock(
           <h3
             key={key}
             className="font-serif text-xl font-bold"
-            dangerouslySetInnerHTML={{ __html: content }}
+            dangerouslySetInnerHTML={{
+              __html: interpolateTemplateString(content, context),
+            }}
           />
         );
       }
@@ -156,21 +201,44 @@ function renderTemplateBlock(
         <h2
           key={key}
           className="font-serif text-2xl font-bold"
-          dangerouslySetInnerHTML={{ __html: content }}
+          dangerouslySetInnerHTML={{
+            __html: interpolateTemplateString(content, context),
+          }}
         />
       );
     }
     case "paragraph": {
       const content =
         typeof block.attrs.content === "string" ? block.attrs.content : block.innerHtml;
+      const resolved = interpolateTemplateString(content, context).trim();
+      if (!resolved) {
+        return null;
+      }
       return (
         <p
           key={key}
           className="text-muted"
-          dangerouslySetInnerHTML={{ __html: content }}
+          dangerouslySetInnerHTML={{ __html: resolved }}
         />
       );
     }
+    case "post-meta":
+      return context.postDate ? (
+        <div
+          key={key}
+          className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-muted"
+        >
+          <time dateTime={context.postDateIso ?? context.postDate}>
+            {context.postDate}
+          </time>
+          {context.postAuthor ? (
+            <>
+              <span>·</span>
+              <span>{context.postAuthor}</span>
+            </>
+          ) : null}
+        </div>
+      ) : null;
     case "copyright":
       return (
         <p key={key} className="font-medium text-foreground">

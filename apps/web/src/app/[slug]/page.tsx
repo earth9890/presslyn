@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { services } from "@/lib/services";
 import { formatDate, isoDate, excerptFrom, getSiteSettings } from "@/lib/site";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
+import { renderThemeTemplate } from "@/themes/template-renderer";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,18 @@ export default async function EntryPage({
   const author = details.authors[entry.id] ?? "";
   const terms = details.terms[entry.id] ?? { categories: [], tags: [] };
   const comments = commentsResult.comments;
+  const entryHeader = await renderThemeTemplate(
+    theme,
+    postType === "page" ? "page" : "single",
+    {
+      siteTitle: site.title,
+      postTitle: entry.title || "(untitled)",
+      postDate: postType === "post" ? formatDate(entry.publishedAt ?? entry.createdAt) : undefined,
+      postDateIso:
+        postType === "post" ? isoDate(entry.publishedAt ?? entry.createdAt) : undefined,
+      postAuthor: postType === "post" ? author : undefined,
+    }
+  );
 
   // JSON-LD structured data for articles.
   const jsonLd = {
@@ -113,34 +126,38 @@ export default async function EntryPage({
       />
 
       <header className={template.frame === "card" ? "mb-10" : "mb-8"}>
-        {postType === "post" ? (
-          <div
-            className={
-              template.frame === "card"
-                ? "flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted"
-                : "flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-muted"
-            }
-          >
-            <time dateTime={isoDate(entry.publishedAt ?? entry.createdAt)}>
-              {formatDate(entry.publishedAt ?? entry.createdAt)}
-            </time>
-            {author ? (
-              <>
-                <span>·</span>
-                <span>{author}</span>
-              </>
+        {entryHeader ?? (
+          <>
+            {postType === "post" ? (
+              <div
+                className={
+                  template.frame === "card"
+                    ? "flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-muted"
+                    : "flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-muted"
+                }
+              >
+                <time dateTime={isoDate(entry.publishedAt ?? entry.createdAt)}>
+                  {formatDate(entry.publishedAt ?? entry.createdAt)}
+                </time>
+                {author ? (
+                  <>
+                    <span>·</span>
+                    <span>{author}</span>
+                  </>
+                ) : null}
+              </div>
             ) : null}
-          </div>
-        ) : null}
-        <h1
-          className={
-            template.frame === "card"
-              ? "mt-3 font-serif text-5xl font-bold leading-[1.05]"
-              : "mt-2 font-serif text-4xl font-bold leading-tight"
-          }
-        >
-          {entry.title || "(untitled)"}
-        </h1>
+            <h1
+              className={
+                template.frame === "card"
+                  ? "mt-3 font-serif text-5xl font-bold leading-[1.05]"
+                  : "mt-2 font-serif text-4xl font-bold leading-tight"
+              }
+            >
+              {entry.title || "(untitled)"}
+            </h1>
+          </>
+        )}
       </header>
 
       {/* Post body — HTML authored by trusted editors via the block editor. */}
