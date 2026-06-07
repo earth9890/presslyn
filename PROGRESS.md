@@ -2,7 +2,7 @@
 
 **Started**: April 11, 2026
 **Current Phase**: Phase 4.1 + Phase 6.4 remaining
-**Tests**: 305 passing (22 test files)
+**Tests**: 308 passing (23 test files)
 **Build**: 7 packages, zero errors
 
 ---
@@ -91,7 +91,7 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 
 | # | Module | Status | Date | Notes |
 |---|--------|--------|------|-------|
-| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime plus a validated `theme.json`-style layer: bundled themes now ship parsed theme config (tokens, layout, template parts, template hierarchy, style-variation metadata), and the public site resolves templates for index/single/page/archive/category/tag/author/search/404 from the active theme. Appearance now changes both the public theme choice and the template chrome. Presslyn now also parses Gutenberg-style template markup and renders bundled theme parts and page-shell fragments for header/footer/404, the home hero, archive headers, and single/page entry headers; full body/comment/query-loop block coverage is still pending. |
+| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime plus a validated `theme.json`-style layer: bundled themes now ship parsed theme config (tokens, layout, template parts, template hierarchy, style-variation metadata), and the public site resolves templates for index/single/page/archive/category/tag/author/search/404 from the active theme. Appearance now changes both the public theme choice and the template chrome. Presslyn now also parses Gutenberg-style template markup and renders bundled theme parts and page-shell fragments for header/footer/404, the home hero, archive headers, and single/page entry headers. Theme discovery now reads external themes from `content/themes/<id>/` via `theme.manifest.json` + `theme.json`, and the public runtime can load those filesystem themes too. Full body/comment/query-loop block coverage is still pending. |
 | 4.2 | Default Theme | VALIDATED | Jun 4, 2026 | A clean editorial default theme baked into `apps/web`: serif headlines, light/dark via CSS variables, header with category nav + search, footer, `.prose-content` styling for editor-authored HTML. |
 | 4.3 | SEO | VALIDATED | Jun 4, 2026 | Per-page metadata + Open Graph via Next `generateMetadata` (site-level template, article metadata on posts), JSON-LD BlogPosting/WebPage structured data, dynamic `sitemap.xml` (posts/pages/categories/tags), RSS 2.0 `/feed`, and `robots.txt` that respects the `blog_public` option. |
 | 4.4 | Public Pages | VALIDATED | Jun 4, 2026 | Home (paginated latest posts), single post & page (`/[slug]`, post-then-page resolution, published-only, comment display), category/tag/author archives, search, and a 404 — all SSR from the core services. |
@@ -117,6 +117,13 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 ---
 
 ## Changelog
+
+### Jun 7, 2026 — Phase 4.1 progress: filesystem theme discovery
+- Added a shared filesystem-theme loader in core that resolves the project `content/themes` directory, validates `theme.manifest.json`, requires a sibling `theme.json`, and discovers installable themes from disk. Added 3 unit tests for discovery, manifest validation, and path resolution.
+- Wired the service container to register discovered filesystem themes alongside bundled ones at startup, so the admin Appearance screen and activation flow can now see themes that live outside the hardcoded bundle.
+- Extended the public theme runtime to load active non-bundled themes from disk, including their `theme.json` config and HTML template files, rather than only supporting the two built-in themes.
+- Added a sample filesystem theme, `content/themes/presslyn-canvas`, with manifest, `theme.json`, and block-template files to exercise the new path end to end.
+- Validation: `pnpm --filter @presslyn/core test` passes (308 tests / 23 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes, and a direct runtime check resolves `content/themes` and discovers `presslyn-canvas`.
 
 ### Jun 7, 2026 — Phase 4.1 progress: template-driven archive and entry shells
 - Extended the web template renderer so bundled theme templates can interpolate runtime values like `{{siteTitle}}`, `{{queryTitle}}`, `{{queryDescription}}`, `{{postTitle}}`, `{{postDate}}`, and `{{postAuthor}}`, plus a small `post-meta` block for article headers.

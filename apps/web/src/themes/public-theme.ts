@@ -1,6 +1,10 @@
 import { cache } from "react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
   parseThemeJson,
+  readThemeManifestFromDirectory,
+  resolveThemesDirectory,
   type CardStyle,
   type TemplateConfig,
   type TemplateKind,
@@ -16,6 +20,7 @@ export interface PublicThemeDefinition {
   name: string;
   config: ThemeJson;
   bodyClassName: string;
+  rootDir: string;
 }
 
 export type { CardStyle, ThemeVariant };
@@ -26,17 +31,51 @@ const PUBLIC_THEMES: Record<string, PublicThemeDefinition> = {
     name: "Presslyn Default",
     config: parseThemeJson(defaultThemeJson),
     bodyClassName: "bg-background text-foreground",
+    rootDir: path.join(process.cwd(), "src/themes/bundled/presslyn-default"),
   },
   "presslyn-ink": {
     id: "presslyn-ink",
     name: "Presslyn Ink",
     config: parseThemeJson(inkThemeJson),
     bodyClassName: "bg-background text-foreground",
+    rootDir: path.join(process.cwd(), "src/themes/bundled/presslyn-ink"),
   },
 };
 
-export function getPublicThemeById(id: string | null | undefined): PublicThemeDefinition {
-  return PUBLIC_THEMES[id ?? "presslyn-default"] ?? PUBLIC_THEMES["presslyn-default"];
+const loadFilesystemTheme = cache(
+  async (id: string): Promise<PublicThemeDefinition | null> => {
+    const rootDir = path.join(resolveThemesDirectory(), id);
+
+    try {
+      const manifest = readThemeManifestFromDirectory(rootDir);
+      const rawConfig = JSON.parse(
+        readFileSync(path.join(rootDir, "theme.json"), "utf8")
+      );
+
+      return {
+        id: manifest.id,
+        name: manifest.name,
+        config: parseThemeJson(rawConfig),
+        bodyClassName: "bg-background text-foreground",
+        rootDir,
+      };
+    } catch {
+      return null;
+    }
+  }
+);
+
+export async function getPublicThemeById(
+  id: string | null | undefined
+): Promise<PublicThemeDefinition> {
+  const themeId = id ?? "presslyn-default";
+  const bundled = PUBLIC_THEMES[themeId];
+  if (bundled) {
+    return bundled;
+  }
+
+  const filesystemTheme = await loadFilesystemTheme(themeId);
+  return filesystemTheme ?? PUBLIC_THEMES["presslyn-default"];
 }
 
 export function getThemeVariant(theme: PublicThemeDefinition): ThemeVariant {

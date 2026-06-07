@@ -1,6 +1,6 @@
 import { cache } from "react";
-import { promises as fs } from "fs";
-import path from "path";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import Link from "next/link";
 import {
   parseBlockTemplate,
@@ -30,13 +30,11 @@ interface TemplateContext {
 }
 
 const loadTemplateBlocks = cache(
-  async (themeId: string, templateName: TemplateName): Promise<ParsedTemplateBlock[] | null> => {
-    const templatePath = path.join(
-      process.cwd(),
-      "src/themes/bundled",
-      themeId,
-      `${templateName}.html`
-    );
+  async (
+    themeRootDir: string,
+    templateName: TemplateName
+  ): Promise<ParsedTemplateBlock[] | null> => {
+    const templatePath = path.join(themeRootDir, `${templateName}.html`);
     let raw: string;
     try {
       raw = await fs.readFile(templatePath, "utf8");
@@ -55,7 +53,7 @@ export async function renderThemeTemplate(
   templateName: TemplateName,
   context: TemplateContext
 ) {
-  const blocks = await loadTemplateBlocks(theme.id, templateName);
+  const blocks = await loadTemplateBlocks(theme.rootDir, templateName);
   if (!blocks) {
     return null;
   }
