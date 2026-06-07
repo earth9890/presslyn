@@ -4,8 +4,9 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { services } from "@/lib/services";
 import { formatDate, isoDate, excerptFrom, getSiteSettings } from "@/lib/site";
+import { getSidebarTemplateData } from "@/lib/sidebar";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
-import { renderThemeTemplate } from "@/themes/template-renderer";
+import { renderThemeTemplate, renderThemeTemplatePart } from "@/themes/template-renderer";
 import { CommentForm } from "@/components/comment-form";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +89,10 @@ export default async function EntryPage({
   const author = details.authors[entry.id] ?? "";
   const terms = details.terms[entry.id] ?? { categories: [], tags: [] };
   const comments = commentsResult.comments;
+  const sidebarData =
+    template.showSidebar && theme.config.templateParts.sidebar
+      ? await getSidebarTemplateData()
+      : null;
   const templateContent = await renderThemeTemplate(
     theme,
     postType === "page" ? "page" : "single",
@@ -108,6 +113,15 @@ export default async function EntryPage({
       backHref: "/",
     }
   );
+  const sidebarContent =
+    template.showSidebar && theme.config.templateParts.sidebar
+      ? await renderThemeTemplatePart(theme, "sidebar", {
+          theme,
+          siteTitle: site.title,
+          sidebarRecentPosts: sidebarData?.recentPosts,
+          sidebarCategories: sidebarData?.categories,
+        })
+      : null;
 
   // JSON-LD structured data for articles.
   const jsonLd = {
@@ -121,7 +135,7 @@ export default async function EntryPage({
     mainEntityOfPage: `${site.url}/${entry.slug}`,
   };
 
-  return (
+  const article = (
     <article
       className={
         template.frame === "card"
@@ -225,5 +239,14 @@ export default async function EntryPage({
         </>
       )}
     </article>
+  );
+
+  return template.showSidebar && sidebarContent ? (
+    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+      <div>{article}</div>
+      <div className="lg:sticky lg:top-6">{sidebarContent}</div>
+    </div>
+  ) : (
+    article
   );
 }

@@ -16,6 +16,7 @@ const FrameStyleSchema = z.enum(["none", "card"]);
 const CardStyleSchema = z.enum(["minimal", "feature"]);
 const HeaderLayoutSchema = z.enum(["stacked", "split"]);
 const FooterLayoutSchema = z.enum(["simple", "columns"]);
+const SidebarLayoutSchema = z.enum(["stacked", "sticky"]);
 const ShellStyleSchema = z.enum(["plain", "tinted"]);
 const ThemeVariantSchema = z.enum(["editorial", "ink"]);
 
@@ -64,7 +65,7 @@ const ThemeTokensSchema = z
 
 const TemplatePartSchema = z
   .object({
-    layout: z.union([HeaderLayoutSchema, FooterLayoutSchema]),
+    layout: z.union([HeaderLayoutSchema, FooterLayoutSchema, SidebarLayoutSchema]),
     showDescription: z.boolean().optional(),
     showSearch: z.boolean().optional(),
     tagline: z.string().max(300).optional(),
@@ -102,6 +103,7 @@ export const ThemeJsonSchema = z
       .object({
         header: TemplatePartSchema,
         footer: TemplatePartSchema,
+        sidebar: TemplatePartSchema.optional(),
       })
       .strict(),
     templates: z.record(TemplateKindSchema, TemplateConfigSchema),
@@ -114,6 +116,7 @@ export type FrameStyle = z.infer<typeof FrameStyleSchema>;
 export type CardStyle = z.infer<typeof CardStyleSchema>;
 export type HeaderLayout = z.infer<typeof HeaderLayoutSchema>;
 export type FooterLayout = z.infer<typeof FooterLayoutSchema>;
+export type SidebarLayout = z.infer<typeof SidebarLayoutSchema>;
 export type ShellStyle = z.infer<typeof ShellStyleSchema>;
 export type ThemeVariant = z.infer<typeof ThemeVariantSchema>;
 export type ThemeTokens = z.infer<typeof ThemeTokensSchema>;

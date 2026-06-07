@@ -38,6 +38,9 @@
     "footer": {
       "layout": "columns",
       "tagline": "A warmer magazine-style reading experience."
+    },
+    "sidebar": {
+      "layout": "sticky"
     }
   },
   "templates": {
@@ -47,30 +50,36 @@
       "hero": "site-intro"
     },
     "single": {
-      "frame": "card"
+      "frame": "card",
+      "showSidebar": true
     },
     "page": {
       "frame": "card"
     },
     "archive": {
       "frame": "none",
-      "cardStyle": "feature"
+      "cardStyle": "feature",
+      "showSidebar": true
     },
     "category": {
       "frame": "none",
-      "cardStyle": "feature"
+      "cardStyle": "feature",
+      "showSidebar": true
     },
     "tag": {
       "frame": "none",
-      "cardStyle": "feature"
+      "cardStyle": "feature",
+      "showSidebar": true
     },
     "author": {
       "frame": "none",
-      "cardStyle": "feature"
+      "cardStyle": "feature",
+      "showSidebar": true
     },
     "search": {
       "frame": "none",
-      "cardStyle": "feature"
+      "cardStyle": "feature",
+      "showSidebar": true
     },
     "404": {
       "frame": "card"

@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { services } from "@/lib/services";
 import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
+import { getSidebarTemplateData } from "@/lib/sidebar";
 import { ArchiveList } from "@/components/archive-list";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
-import { renderThemeTemplate } from "@/themes/template-renderer";
+import { renderThemeTemplate, renderThemeTemplatePart } from "@/themes/template-renderer";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,10 @@ export default async function SearchPage({
       })
     : { posts: [], total: 0 };
   const cards = await toPostCards(result.posts);
+  const sidebarData =
+    template.showSidebar && theme.config.templateParts.sidebar
+      ? await getSidebarTemplateData()
+      : null;
   const resultsHeader = query
     ? await renderThemeTemplate(theme, "archive", {
         theme,
@@ -55,6 +60,15 @@ export default async function SearchPage({
         emptyMessage: "No posts matched your search.",
       })
     : null;
+  const sidebarContent =
+    template.showSidebar && theme.config.templateParts.sidebar
+      ? await renderThemeTemplatePart(theme, "sidebar", {
+          theme,
+          siteTitle: site.title,
+          sidebarRecentPosts: sidebarData?.recentPosts,
+          sidebarCategories: sidebarData?.categories,
+        })
+      : null;
 
   return (
     <div className="space-y-8">
@@ -93,6 +107,8 @@ export default async function SearchPage({
           description={`${result.total} result${result.total === 1 ? "" : "s"}`}
           headerContent={resultsHeader}
           content={resultsHeader}
+          sidebarContent={sidebarContent}
+          showSidebar={template.showSidebar}
           posts={cards}
           theme={theme}
           frame={template.frame}

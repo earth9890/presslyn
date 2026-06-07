@@ -7,6 +7,8 @@ interface ArchiveListProps {
   description?: string;
   headerContent?: React.ReactNode;
   content?: React.ReactNode;
+  sidebarContent?: React.ReactNode;
+  showSidebar?: boolean;
   posts: PostCardData[];
   page: number;
   totalPages: number;
@@ -36,6 +38,8 @@ export function ArchiveList({
   description,
   headerContent,
   content,
+  sidebarContent,
+  showSidebar = false,
   posts,
   page,
   totalPages,
@@ -46,6 +50,15 @@ export function ArchiveList({
   frame,
   cardStyle,
 }: ArchiveListProps) {
+  if (showSidebar && sidebarContent) {
+    return (
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+        <div>{content ?? headerContent}</div>
+        <div className="lg:sticky lg:top-6">{sidebarContent}</div>
+      </div>
+    );
+  }
+
   if (content) {
     return <div>{content}</div>;
   }

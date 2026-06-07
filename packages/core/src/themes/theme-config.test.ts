@@ -37,6 +37,9 @@ describe("parseThemeJson", () => {
           layout: "simple",
           tagline: "Powered by Presslyn",
         },
+        sidebar: {
+          layout: "sticky",
+        },
       },
       templates: {
         index: { frame: "none", cardStyle: "minimal", hero: "site-intro" },
@@ -88,6 +91,9 @@ describe("parseThemeJson", () => {
           },
           footer: {
             layout: "simple",
+          },
+          sidebar: {
+            layout: "stacked",
           },
         },
         templates: {

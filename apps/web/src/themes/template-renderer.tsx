@@ -14,6 +14,7 @@ import type { PublicThemeDefinition } from "./public-theme";
 type TemplateName =
   | "header"
   | "footer"
+  | "sidebar"
   | "404"
   | "index"
   | "archive"
@@ -28,6 +29,8 @@ interface TemplateContext {
   siteTitle: string;
   siteDescription?: string;
   categories?: { slug: string; name: string }[];
+  sidebarRecentPosts?: { slug: string; title: string }[];
+  sidebarCategories?: { slug: string; name: string; count: number }[];
   queryTitle?: string;
   queryDescription?: string;
   postTitle?: string;
@@ -87,7 +90,7 @@ export async function renderThemeTemplate(
 
 export async function renderThemeTemplatePart(
   theme: PublicThemeDefinition,
-  part: "header" | "footer" | "404",
+  part: "header" | "footer" | "sidebar" | "404",
   context: TemplateContext
 ) {
   return renderThemeTemplate(theme, part, context);
@@ -149,6 +152,13 @@ function renderTemplateBlock(
           </section>
         );
       }
+      if (tagName === "aside") {
+        return (
+          <aside key={key} className={className}>
+            {nested}
+          </aside>
+        );
+      }
 
       return (
         <div key={key} className={className}>
@@ -201,6 +211,28 @@ function renderTemplateBlock(
         >
           Search the archive
         </Link>
+      );
+    case "search-form":
+      return (
+        <form key={key} action="/search" method="GET" className={className ?? "space-y-3"}>
+          <label htmlFor={`${key}-q`} className="block text-sm font-medium text-foreground">
+            Search
+          </label>
+          <div className="flex gap-2">
+            <input
+              id={`${key}-q`}
+              name="q"
+              placeholder="Search posts..."
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+            <button
+              type="submit"
+              className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-background"
+            >
+              Go
+            </button>
+          </div>
+        </form>
       );
     case "heading": {
       const content =
@@ -277,6 +309,53 @@ function renderTemplateBlock(
             />
           ))}
         </div>
+      );
+    }
+    case "recent-posts": {
+      const posts = context.sidebarRecentPosts ?? [];
+      if (posts.length === 0) {
+        return null;
+      }
+      return (
+        <section key={key} className={className ?? "space-y-3"}>
+          <h2 className="font-serif text-xl font-bold">Recent posts</h2>
+          <ul className="space-y-2 text-sm">
+            {posts.map((post) => (
+              <li key={post.slug}>
+                <Link
+                  href={`/${post.slug}`}
+                  className="text-muted transition-colors hover:text-foreground"
+                >
+                  {post.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      );
+    }
+    case "category-list": {
+      const categories = context.sidebarCategories ?? [];
+      if (categories.length === 0) {
+        return null;
+      }
+      return (
+        <section key={key} className={className ?? "space-y-3"}>
+          <h2 className="font-serif text-xl font-bold">Categories</h2>
+          <ul className="space-y-2 text-sm">
+            {categories.map((category) => (
+              <li key={category.slug} className="flex items-center justify-between gap-4">
+                <Link
+                  href={`/category/${category.slug}`}
+                  className="text-muted transition-colors hover:text-foreground"
+                >
+                  {category.name}
+                </Link>
+                <span className="text-muted">{category.count}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       );
     }
     case "pagination": {

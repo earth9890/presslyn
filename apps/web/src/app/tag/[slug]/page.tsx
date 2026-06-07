@@ -4,9 +4,10 @@ import type { Metadata } from "next";
 import { services } from "@/lib/services";
 import { getSiteSettings } from "@/lib/site";
 import { toPostCards } from "@/lib/posts";
+import { getSidebarTemplateData } from "@/lib/sidebar";
 import { ArchiveList } from "@/components/archive-list";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
-import { renderThemeTemplate } from "@/themes/template-renderer";
+import { renderThemeTemplate, renderThemeTemplatePart } from "@/themes/template-renderer";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,10 @@ export default async function TagPage({
     offset: (page - 1) * limit,
   });
   const cards = await toPostCards(posts);
+  const sidebarData =
+    template.showSidebar && theme.config.templateParts.sidebar
+      ? await getSidebarTemplateData()
+      : null;
   const headerContent = await renderThemeTemplate(theme, "archive", {
     theme,
     cardStyle: template.cardStyle ?? "minimal",
@@ -75,6 +80,15 @@ export default async function TagPage({
     basePath: `/tag/${term.slug}`,
     emptyMessage: "No posts with this tag yet.",
   });
+  const sidebarContent =
+    template.showSidebar && theme.config.templateParts.sidebar
+      ? await renderThemeTemplatePart(theme, "sidebar", {
+          theme,
+          siteTitle: site.title,
+          sidebarRecentPosts: sidebarData?.recentPosts,
+          sidebarCategories: sidebarData?.categories,
+        })
+      : null;
 
   return (
     <ArchiveList
@@ -82,6 +96,8 @@ export default async function TagPage({
       description={term.description || undefined}
       headerContent={headerContent}
       content={headerContent}
+      sidebarContent={sidebarContent}
+      showSidebar={template.showSidebar}
       posts={cards}
       theme={theme}
       frame={template.frame}
