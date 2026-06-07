@@ -5,6 +5,7 @@ import {
   parseThemeJson,
   readThemeManifestFromDirectory,
   resolveThemesDirectory,
+  type StyleVariation,
   type CardStyle,
   type TemplateConfig,
   type TemplateKind,
@@ -21,6 +22,7 @@ export interface PublicThemeDefinition {
   config: ThemeJson;
   bodyClassName: string;
   rootDir: string;
+  activeStyleVariationId: string | null;
 }
 
 export type { CardStyle, ThemeVariant };
@@ -32,6 +34,7 @@ const PUBLIC_THEMES: Record<string, PublicThemeDefinition> = {
     config: parseThemeJson(defaultThemeJson),
     bodyClassName: "bg-background text-foreground",
     rootDir: path.join(process.cwd(), "src/themes/bundled/presslyn-default"),
+    activeStyleVariationId: null,
   },
   "presslyn-ink": {
     id: "presslyn-ink",
@@ -39,6 +42,7 @@ const PUBLIC_THEMES: Record<string, PublicThemeDefinition> = {
     config: parseThemeJson(inkThemeJson),
     bodyClassName: "bg-background text-foreground",
     rootDir: path.join(process.cwd(), "src/themes/bundled/presslyn-ink"),
+    activeStyleVariationId: null,
   },
 };
 
@@ -58,6 +62,7 @@ const loadFilesystemTheme = cache(
         config: parseThemeJson(rawConfig),
         bodyClassName: "bg-background text-foreground",
         rootDir,
+        activeStyleVariationId: null,
       };
     } catch {
       return null;
@@ -118,18 +123,21 @@ export function getThemeMainClassName(theme: PublicThemeDefinition): string {
 
 export function getThemeCssVariables(theme: PublicThemeDefinition): Record<string, string> {
   const { color, typography, layout } = theme.config.settings;
+  const styleVariation = getSelectedThemeStyleVariation(theme);
+  const accent = styleVariation?.accent ?? color.accent;
+  const darkAccent = styleVariation?.accent ?? color.darkAccent ?? color.accent;
 
   return {
     "--background": color.background,
     "--foreground": color.foreground,
     "--muted": color.muted,
-    "--accent": color.accent,
+    "--accent": accent,
     "--border": color.border,
     "--surface": color.surface,
     "--background-dark": color.darkBackground ?? color.background,
     "--foreground-dark": color.darkForeground ?? color.foreground,
     "--muted-dark": color.darkMuted ?? color.muted,
-    "--accent-dark": color.darkAccent ?? color.accent,
+    "--accent-dark": darkAccent,
     "--border-dark": color.darkBorder ?? color.border,
     "--surface-dark": color.darkSurface ?? color.surface,
     "--font-body": typography.bodyFont,
@@ -139,7 +147,36 @@ export function getThemeCssVariables(theme: PublicThemeDefinition): Record<strin
   };
 }
 
+export function getSelectedThemeStyleVariation(
+  theme: PublicThemeDefinition
+): StyleVariation | null {
+  if (!theme.activeStyleVariationId) {
+    return null;
+  }
+
+  return (
+    theme.config.styleVariations?.find(
+      (variation) => variation.id === theme.activeStyleVariationId
+    ) ?? null
+  );
+}
+
 export const getActivePublicTheme = cache(async (): Promise<PublicThemeDefinition> => {
   const activeThemeId = await services.themes.getActiveId().catch(() => null);
-  return getPublicThemeById(activeThemeId);
+  const theme = await getPublicThemeById(activeThemeId);
+  const styleVariationId = await services.themes
+    .getStyleVariationId(theme.id)
+    .catch(() => null);
+
+  if (
+    styleVariationId &&
+    theme.config.styleVariations?.some((variation) => variation.id === styleVariationId)
+  ) {
+    return {
+      ...theme,
+      activeStyleVariationId: styleVariationId,
+    };
+  }
+
+  return theme;
 });

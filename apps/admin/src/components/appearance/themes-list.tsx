@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PaintBoardIcon, CheckmarkCircle01Icon } from "hugeicons-react";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { useAdminNavigation } from "@/components/layout/admin-navigation";
+import type { StyleVariation } from "@presslyn/core";
 
 export interface ThemeItem {
   id: string;
@@ -13,12 +14,15 @@ export interface ThemeItem {
   description?: string;
   author?: string;
   active: boolean;
+  styleVariationId: string | null;
+  styleVariations: StyleVariation[];
 }
 
 export function ThemesList({ themes }: { themes: ThemeItem[] }) {
   const router = useRouter();
   const { startRefresh } = useAdminNavigation();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyVariationThemeId, setBusyVariationThemeId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   async function activate(id: string) {
@@ -33,6 +37,30 @@ export function ThemesList({ themes }: { themes: ThemeItem[] }) {
       setError(err instanceof ApiError ? err.message : "Could not activate theme.");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function updateStyleVariation(theme: ThemeItem, variationId: string | null) {
+    setBusyVariationThemeId(theme.id);
+    setError("");
+    try {
+      await apiFetch(`/api/v1/themes/${theme.id}/style-variation`, {
+        method: "POST",
+        body: JSON.stringify({ variationId }),
+      });
+      const variation = theme.styleVariations.find((entry) => entry.id === variationId);
+      startRefresh(
+        variation
+          ? `Applying ${variation.label}`
+          : `Updating ${theme.name} style`
+      );
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Could not update theme style variation."
+      );
+    } finally {
+      setBusyVariationThemeId(null);
     }
   }
 
@@ -81,6 +109,38 @@ export function ThemesList({ themes }: { themes: ThemeItem[] }) {
                 >
                   {busyId === theme.id ? "Activating…" : "Activate"}
                 </button>
+              ) : null}
+              {theme.active && theme.styleVariations.length > 0 ? (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-medium text-text-secondary">Style variation</p>
+                  <div className="flex flex-wrap gap-2">
+                    {theme.styleVariations.map((variation) => {
+                      const selected = theme.styleVariationId === variation.id;
+                      return (
+                        <button
+                          key={variation.id}
+                          type="button"
+                          onClick={() => updateStyleVariation(theme, variation.id)}
+                          disabled={busyVariationThemeId === theme.id}
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                            selected
+                              ? "border-accent bg-accent/10 text-text-primary"
+                              : "border-border text-text-secondary hover:border-accent/40 hover:text-text-primary"
+                          }`}
+                        >
+                          <span
+                            className="h-3 w-3 rounded-full border border-black/10"
+                            style={{
+                              backgroundColor:
+                                variation.accent ?? "var(--color-text-muted)",
+                            }}
+                          />
+                          <span>{variation.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               ) : null}
             </div>
           </div>

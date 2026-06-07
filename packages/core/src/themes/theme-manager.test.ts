@@ -79,4 +79,24 @@ describe("ThemeManager", () => {
     await mgr.activate("presslyn-default"); // already active → no throw, no change
     expect(store.data.get("active_theme")).toBe("presslyn-default");
   });
+
+  it("persists style variations per registered theme", async () => {
+    const mgr = new ThemeManager(fakeStore(), hooks);
+    mgr.register(defaultTheme);
+    mgr.register({ id: "twenty", name: "Twenty", version: "1.0.0" });
+
+    await mgr.setStyleVariation("presslyn-default", "terracotta");
+    await mgr.setStyleVariation("twenty", "ocean");
+
+    expect(await mgr.getStyleVariationId("presslyn-default")).toBe("terracotta");
+    expect(await mgr.getStyleVariationId("twenty")).toBe("ocean");
+
+    const list = await mgr.list();
+    expect(list.find((theme) => theme.manifest.id === "twenty")?.styleVariationId).toBe(
+      "ocean"
+    );
+
+    await mgr.setStyleVariation("twenty", null);
+    expect(await mgr.getStyleVariationId("twenty")).toBeNull();
+  });
 });

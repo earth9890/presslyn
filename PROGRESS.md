@@ -2,7 +2,7 @@
 
 **Started**: April 11, 2026
 **Current Phase**: Phase 4.1 + Phase 6.4 remaining
-**Tests**: 311 passing (24 test files)
+**Tests**: 312 passing (24 test files)
 **Build**: 7 packages, zero errors
 
 ---
@@ -91,7 +91,7 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 
 | # | Module | Status | Date | Notes |
 |---|--------|--------|------|-------|
-| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime plus a validated `theme.json`-style layer: bundled themes now ship parsed theme config (tokens, layout, template parts, template hierarchy, style-variation metadata), and the public site resolves templates for index/single/page/archive/category/tag/author/search/404 from the active theme. Appearance now changes both the public theme choice and the template chrome. Presslyn now also parses Gutenberg-style template markup and renders bundled theme parts and page-shell fragments for header/footer/404, the home hero, archive headers, and single/page entry headers. Theme discovery now reads external themes from `content/themes/<id>/` via `theme.manifest.json` + `theme.json`, and the public runtime can load those filesystem themes too. Full body/comment/query-loop block coverage is still pending. |
+| 4.1 | Theme System | In Progress | Jun 7, 2026 | Added a real public-theme runtime plus a validated `theme.json`-style layer: bundled themes now ship parsed theme config (tokens, layout, template parts, template hierarchy, style-variation metadata), and the public site resolves templates for index/single/page/archive/category/tag/author/search/404 from the active theme. Appearance now changes both the public theme choice and the template chrome. Presslyn now also parses Gutenberg-style template markup and renders bundled theme parts and page-shell fragments for header/footer/404, the home hero, archive headers, and single/page entry headers. Theme discovery now reads external themes from `content/themes/<id>/` via `theme.manifest.json` + `theme.json`, and the public runtime can load those filesystem themes too. Style variations are now persisted per theme through the Appearance screen and applied by the public runtime. Full body/comment/query-loop block coverage is still pending. |
 | 4.2 | Default Theme | VALIDATED | Jun 4, 2026 | A clean editorial default theme baked into `apps/web`: serif headlines, light/dark via CSS variables, header with category nav + search, footer, `.prose-content` styling for editor-authored HTML. |
 | 4.3 | SEO | VALIDATED | Jun 4, 2026 | Per-page metadata + Open Graph via Next `generateMetadata` (site-level template, article metadata on posts), JSON-LD BlogPosting/WebPage structured data, dynamic `sitemap.xml` (posts/pages/categories/tags), RSS 2.0 `/feed`, and `robots.txt` that respects the `blog_public` option. |
 | 4.4 | Public Pages | VALIDATED | Jun 7, 2026 | Home (paginated latest posts), single post & page (`/[slug]`, post-then-page resolution, published-only), category/tag/author archives, search, and a 404 — all SSR from the core services. Public comment display and submission are now live: the web app ships a public comment form plus a hardened submission path that only accepts published/open targets, validates guest fields, rejects honeypot spam, and queues new comments for moderation. |
@@ -117,6 +117,12 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 ---
 
 ## Changelog
+
+### Jun 7, 2026 — Phase 4.1 progress: persisted style variations
+- Extended the core `ThemeManager` to persist a per-theme style variation selection in options storage and expose that selection through the registered-theme list.
+- Added a new theme REST action for style variation updates and expanded the admin Appearance screen so the active theme can switch between its declared style variations using accent-color swatches.
+- Updated the public runtime to read the selected variation for the active theme and apply its accent override through the shared CSS-variable layer, so appearance changes actually affect the live site.
+- Validation: `pnpm --filter @presslyn/core test` passes (309 tests / 23 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
 
 ### Jun 7, 2026 — Phase 4.4 complete: public comment submission + hardening
 - Added a shared public-comment submission schema/helper in `@presslyn/api` that requires guest name + email, rejects filled honeypot fields, only allows comments on published/open entries, and ensures parent comments belong to the same post.

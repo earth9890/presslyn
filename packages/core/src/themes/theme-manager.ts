@@ -10,6 +10,18 @@ import { hooks as globalHooks, type HookSystem } from "../hooks.js";
 import { NotFoundError, ValidationError } from "../errors.js";
 
 const ACTIVE_THEME_OPTION = "active_theme";
+const THEME_STYLE_VARIATIONS_OPTION = "theme_style_variations";
+
+const ThemeStyleVariationIdSchema = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9][a-z0-9-]*$/, "style variation id must be kebab-case");
+
+const ThemeStyleVariationMapSchema = z.record(
+  z.string().min(1).max(100),
+  ThemeStyleVariationIdSchema
+);
 
 export const ThemeManifestSchema = z
   .object({
@@ -31,6 +43,7 @@ export type ThemeManifest = z.infer<typeof ThemeManifestSchema>;
 export interface ThemeInfo {
   manifest: ThemeManifest;
   active: boolean;
+  styleVariationId: string | null;
 }
 
 /** Minimal option-store shape (OptionsService satisfies it). */
@@ -78,9 +91,11 @@ export class ThemeManager {
   /** List every registered theme with its active state. */
   async list(): Promise<ThemeInfo[]> {
     const activeId = await this.getActiveId();
+    const variations = await this.getStyleVariationMap();
     return [...this.registry.values()].map((manifest) => ({
       manifest,
       active: manifest.id === activeId,
+      styleVariationId: variations[manifest.id] ?? null,
     }));
   }
 
@@ -94,5 +109,34 @@ export class ThemeManager {
     if (previous === id) return;
     await this.options.updateOption(ACTIVE_THEME_OPTION, id);
     await this.hooks.doAction("switch_theme", previous, id);
+  }
+
+  async getStyleVariationId(themeId: string): Promise<string | null> {
+    if (!this.registry.has(themeId)) throw new NotFoundError("Theme", themeId);
+    const variations = await this.getStyleVariationMap();
+    return variations[themeId] ?? null;
+  }
+
+  async setStyleVariation(themeId: string, variationId: string | null): Promise<void> {
+    if (!this.registry.has(themeId)) throw new NotFoundError("Theme", themeId);
+
+    const variations = await this.getStyleVariationMap();
+    if (variationId === null) {
+      delete variations[themeId];
+      await this.options.updateOption(THEME_STYLE_VARIATIONS_OPTION, variations);
+      return;
+    }
+
+    const parsed = ThemeStyleVariationIdSchema.parse(variationId);
+    variations[themeId] = parsed;
+    await this.options.updateOption(THEME_STYLE_VARIATIONS_OPTION, variations);
+  }
+
+  private async getStyleVariationMap(): Promise<Record<string, string>> {
+    const raw = await this.options.getOption<Record<string, unknown>>(
+      THEME_STYLE_VARIATIONS_OPTION,
+      {}
+    );
+    return ThemeStyleVariationMapSchema.parse(raw);
   }
 }

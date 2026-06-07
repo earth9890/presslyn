@@ -52,7 +52,11 @@ export default async function RootLayout({
     .map((c) => ({ slug: c.slug, name: c.name }));
 
   return (
-    <html lang={site.language} data-site-theme={theme.id}>
+    <html
+      lang={site.language}
+      data-site-theme={theme.id}
+      data-theme-variation={theme.activeStyleVariationId ?? "default"}
+    >
       <body
         className={`flex min-h-screen flex-col ${theme.bodyClassName}`}
         style={getThemeCssVariables(theme)}
