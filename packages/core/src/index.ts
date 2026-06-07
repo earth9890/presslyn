@@ -81,6 +81,7 @@ export {
   CommentsService,
   type CreateCommentInput,
   type CommentQueryOptions,
+  type CommentScope,
 } from "./comments/index.js";
 
 // Formatting

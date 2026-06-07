@@ -86,7 +86,7 @@ export default async function EntryPage({
           orderBy: "date",
           order: "asc",
           limit: 100,
-        })
+        }, siteScope)
       : Promise.resolve({ comments: [], total: 0 }),
   ]);
 

@@ -2,7 +2,7 @@
 
 **Started**: April 11, 2026
 **Current Phase**: Phase 4.1 + Phase 6.4 remaining
-**Tests**: 333 passing (26 test files)
+**Tests**: 336 passing (27 test files)
 **Build**: 7 packages, zero errors
 
 ---
@@ -111,12 +111,18 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 | 6.1 | Caching | VALIDATED | Jun 4, 2026 | Pluggable async object cache: `CacheStore` interface with `MemoryStore` (default, injectable clock) and a lazy-ioredis `RedisStore`, plus a WordPress-style `Transients` API (`get`/`set`/`delete`/`flush`/`remember`) and `cacheStoreFromEnv` (Redis when `REDIS_URL` set). 10 unit tests. Added alongside the existing per-request in-memory `CacheService` (untouched). Next.js ISR / CDN tuning is a deploy-time concern. |
 | 6.2 | Email | VALIDATED | Jun 4, 2026 | Core EmailService with a transport abstraction (LogTransport default, CapturingTransport for tests, nodemailer SmtpTransport lazily loaded, `transportFromEnv`), HTML+text templates (welcome, password reset, comment notification) with escaping, and `email_message` filter + `email_sent` action hooks. 6 unit tests. Wiring into auth/registration flows is pending a password-reset-token system. |
 | 6.3 | WP Importer | VALIDATED | Jun 4, 2026 | WXR importer completing the migration round-trip with the exporter: core `parseWxr` (fast-xml-parser, 7 round-trip tests through `buildWxr`) + idempotent `importWxr` (ensures categories/tags, maps authors to existing users by login, creates posts/pages with term assignment + comments, skips existing slugs). `POST /api/v1/import` (multipart, `import` capability, 25MB cap, parse errors → 400) and a Tools import button that reports a summary. Media re-download/re-linking still pending. |
-| 6.4 | Multisite | In Progress | Jun 7, 2026 | Foundation + runtime mapping + option isolation + post isolation slices shipped: added a `sites` table + migration/seeded primary site, strict `CreateSite`/`UpdateSite` schemas, a `MultisiteService` with duplicate prevention, primary-site protection, and host/path site resolution, REST routes for list/create/update, a real `/network` admin screen, a public web runtime that resolves the current site per request, site-scoped options storage/read paths with legacy-schema fallback, and site-scoped posts/pages with public queries now bound to the resolved site. Taxonomy/media/comments are still partially shared, and subdirectory rewrites are still pending. |
+| 6.4 | Multisite | In Progress | Jun 7, 2026 | Foundation + runtime mapping + option isolation + post isolation + comment isolation slices shipped: added a `sites` table + migration/seeded primary site, strict `CreateSite`/`UpdateSite` schemas, a `MultisiteService` with duplicate prevention, primary-site protection, and host/path site resolution, REST routes for list/create/update, a real `/network` admin screen, a public web runtime that resolves the current site per request, site-scoped options storage/read paths with legacy-schema fallback, site-scoped posts/pages, and comment reads/submissions now bound to the resolved site's content. Taxonomy/media are still partially shared, and subdirectory rewrites are still pending. |
 | 6.5 | CLI Completion | VALIDATED | Jun 4, 2026 | `presslyn` CLI (commander) with service-backed commands: `status`, `user:create`, `user:list`, `post:list`, `export --out`, `import <file>`; `db:migrate`/`db:seed` delegate to the database package scripts. Live-validated against a real Postgres DB (created + migrated + seeded this session): status/lists work, and a full export → idempotent re-import → modified-import round-trip behaves correctly. |
 
 ---
 
 ## Changelog
+
+### Jun 7, 2026 — Phase 6.4 progress: site-scoped comments
+- Extended `CommentsService` with optional site scoping for comment reads, creation, moderation lookups, queries, and aggregate counts by joining comments back through the owning posts.
+- Updated the public entry page and the web comment-submission route so displayed comments, parent-comment validation, and new comment creation now all resolve against the current site's content boundary instead of a global comment pool.
+- Added a focused `CommentsService` multisite test suite covering scoped reads, scoped list queries, and rejection of cross-site comment creation, bringing core coverage to **336 passing tests across 27 files**.
+- Validation: `pnpm --filter @presslyn/core test` passes (336 tests / 27 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
 
 ### Jun 7, 2026 — Phase 6.4 progress: site-scoped posts/pages
 - Added the next content-isolation slice in persistence: a new `posts.site_id` relationship plus a migration that attaches existing posts to the primary site and replaces the global slug/type indexes with site-aware equivalents.

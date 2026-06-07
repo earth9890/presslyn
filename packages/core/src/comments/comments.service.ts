@@ -29,6 +29,10 @@ export interface CommentQueryOptions {
   offset?: number;
 }
 
+export interface CommentScope {
+  siteId?: number;
+}
+
 export class CommentsService {
   constructor(private db: Database) {}
 
@@ -39,7 +43,7 @@ export class CommentsService {
    * comments (commentStatus === "open"), applies the `comment_text` filter,
    * inserts the row, and fires the `comment_post` action.
    */
-  async createComment(input: CreateCommentInput) {
+  async createComment(input: CreateCommentInput, scope?: CommentScope) {
     // Validate input with Zod schema
     const parsed = CreateCommentSchema.parse(input);
 
@@ -47,7 +51,11 @@ export class CommentsService {
     const [post] = await this.db
       .select({ id: posts.id, commentStatus: posts.commentStatus })
       .from(posts)
-      .where(eq(posts.id, parsed.postId))
+      .where(
+        scope?.siteId !== undefined
+          ? and(eq(posts.id, parsed.postId), eq(posts.siteId, scope.siteId))
+          : eq(posts.id, parsed.postId)
+      )
       .limit(1);
 
     if (!post) {
@@ -81,13 +89,19 @@ export class CommentsService {
    *
    * @throws {NotFoundError} when no comment matches the given id.
    */
-  async getCommentById(id: number) {
-    const [comment] = await this.db
-      .select()
+  async getCommentById(id: number, scope?: CommentScope) {
+    const rows = await this.db
+      .select({ comment: comments })
       .from(comments)
-      .where(eq(comments.id, id))
+      .innerJoin(posts, eq(comments.postId, posts.id))
+      .where(
+        scope?.siteId !== undefined
+          ? and(eq(comments.id, id), eq(posts.siteId, scope.siteId))
+          : eq(comments.id, id)
+      )
       .limit(1);
 
+    const comment = rows[0]?.comment;
     if (!comment) throw new NotFoundError("Comment", id);
     return comment;
   }
@@ -95,8 +109,8 @@ export class CommentsService {
   /**
    * Mark a comment as approved and fire the `transition_comment_status` action.
    */
-  async approveComment(id: number) {
-    const comment = await this.getCommentById(id);
+  async approveComment(id: number, scope?: CommentScope) {
+    const comment = await this.getCommentById(id, scope);
     const [updated] = await this.db
       .update(comments)
       .set({ approved: true })
@@ -110,7 +124,8 @@ export class CommentsService {
   /**
    * Mark a comment as unapproved (pending).
    */
-  async unapproveComment(id: number) {
+  async unapproveComment(id: number, scope?: CommentScope) {
+    await this.getCommentById(id, scope);
     const [updated] = await this.db
       .update(comments)
       .set({ approved: false })
@@ -126,8 +141,8 @@ export class CommentsService {
    * thread structure stays intact, then removes the comment row.  Both
    * operations run inside a transaction for atomicity.
    */
-  async deleteComment(id: number) {
-    const comment = await this.getCommentById(id);
+  async deleteComment(id: number, scope?: CommentScope) {
+    const comment = await this.getCommentById(id, scope);
 
     await this.db.transaction(async (tx) => {
       // Re-parent children to the deleted comment's parent
@@ -148,7 +163,10 @@ export class CommentsService {
    *
    * Validates options via Zod and caps the page size to 100.
    */
-  async queryComments(opts: CommentQueryOptions = {}) {
+  async queryComments(
+    opts: CommentQueryOptions = {},
+    scope?: CommentScope
+  ) {
     // Validate input with Zod schema
     const parsed = CommentQuerySchema.parse(opts);
 
@@ -166,6 +184,7 @@ export class CommentsService {
     const conditions = [];
     if (postId) conditions.push(eq(comments.postId, postId));
     if (approved !== undefined) conditions.push(eq(comments.approved, approved));
+    if (scope?.siteId !== undefined) conditions.push(eq(posts.siteId, scope.siteId));
 
     const orderCol = orderBy === "id" ? comments.id : comments.createdAt;
     const orderFn = order === "desc" ? desc : asc;
@@ -173,8 +192,9 @@ export class CommentsService {
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const rows = await this.db
-      .select()
+      .select({ comment: comments })
       .from(comments)
+      .innerJoin(posts, eq(comments.postId, posts.id))
       .where(where)
       .orderBy(orderFn(orderCol))
       .limit(limit)
@@ -183,9 +203,10 @@ export class CommentsService {
     const [countResult] = await this.db
       .select({ count: sql<number>`count(*)::int` })
       .from(comments)
+      .innerJoin(posts, eq(comments.postId, posts.id))
       .where(where);
 
-    return { comments: rows, total: countResult.count };
+    return { comments: rows.map((row) => row.comment), total: countResult.count };
   }
 
   /**
@@ -193,13 +214,15 @@ export class CommentsService {
    *
    * Handles the empty-table case gracefully (all zeros).
    */
-  async getCommentCounts() {
+  async getCommentCounts(scope?: CommentScope) {
     const result = await this.db
       .select({
         approved: comments.approved,
         count: sql<number>`count(*)::int`,
       })
       .from(comments)
+      .innerJoin(posts, eq(comments.postId, posts.id))
+      .where(scope?.siteId !== undefined ? eq(posts.siteId, scope.siteId) : undefined)
       .groupBy(comments.approved);
 
     const counts = { approved: 0, pending: 0, total: 0 };

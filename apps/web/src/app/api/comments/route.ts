@@ -4,20 +4,27 @@ import {
   assertPublicCommentTarget,
 } from "@presslyn/api";
 import { services } from "@/lib/services";
+import { getResolvedSite } from "@/lib/site";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const validated = PublicCommentSubmissionSchema.parse(body);
+    const resolvedSite = await getResolvedSite();
+    const siteScope = resolvedSite ? { siteId: resolvedSite.id } : undefined;
 
     await assertPublicCommentTarget(
-      services.content,
-      services.comments,
+      {
+        getPostById: (id: number) => services.content.getPostById(id, siteScope),
+      },
+      {
+        getCommentById: (id: number) => services.comments.getCommentById(id, siteScope),
+      },
       validated
     );
 
     const { website: _website, ...commentInput } = validated;
-    const comment = await services.comments.createComment(commentInput);
+    const comment = await services.comments.createComment(commentInput, siteScope);
 
     return NextResponse.json(
       {
