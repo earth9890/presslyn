@@ -1,6 +1,8 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   transpilePackages: ["@presslyn/ui", "@presslyn/api", "@presslyn/core", "@presslyn/database"],
   serverExternalPackages: ["argon2", "sharp", "postgres", "file-type"],
   webpack: (config, { isServer }) => {
