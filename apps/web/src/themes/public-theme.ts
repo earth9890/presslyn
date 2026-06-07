@@ -12,6 +12,7 @@ import {
   type ThemeJson,
   type ThemeVariant,
 } from "@presslyn/core";
+import { getResolvedSite } from "@/lib/site";
 import { services } from "@/lib/services";
 import defaultThemeJson from "./bundled/presslyn-default/theme.json";
 import inkThemeJson from "./bundled/presslyn-ink/theme.json";
@@ -162,11 +163,14 @@ export function getSelectedThemeStyleVariation(
 }
 
 export const getActivePublicTheme = cache(async (): Promise<PublicThemeDefinition> => {
-  const activeThemeId = await services.themes.getActiveId().catch(() => null);
+  const resolvedSite = await getResolvedSite();
+  const siteThemeId =
+    resolvedSite?.meta.activeThemeId ?? resolvedSite?.meta.activeTheme ?? null;
+  const activeThemeId = siteThemeId || (await services.themes.getActiveId().catch(() => null));
   const theme = await getPublicThemeById(activeThemeId);
-  const styleVariationId = await services.themes
-    .getStyleVariationId(theme.id)
-    .catch(() => null);
+  const styleVariationId =
+    resolvedSite?.meta.themeStyleVariationId ??
+    (await services.themes.getStyleVariationId(theme.id).catch(() => null));
 
   if (
     styleVariationId &&

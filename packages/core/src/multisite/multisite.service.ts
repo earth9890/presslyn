@@ -32,6 +32,18 @@ function normalizePath(pathname?: string): string {
   return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
 }
 
+function isPathMatch(sitePath: string, pathname: string): boolean {
+  if (sitePath === "/") {
+    return true;
+  }
+
+  if (!pathname.startsWith(sitePath)) {
+    return false;
+  }
+
+  return pathname.length === sitePath.length || pathname.charAt(sitePath.length) !== "/";
+}
+
 export class MultisiteService {
   constructor(private readonly db: Database) {}
 
@@ -132,5 +144,30 @@ export class MultisiteService {
       .limit(1);
 
     return site ?? null;
+  }
+
+  async resolveSite(domain: string, pathname = "/") {
+    const normalizedDomain = normalizeDomain(domain);
+    const normalizedPath = normalizePath(pathname);
+
+    const candidates = await this.db
+      .select()
+      .from(sites)
+      .where(and(eq(sites.domain, normalizedDomain), eq(sites.status, "active")));
+
+    const matched = candidates
+      .filter((site) => isPathMatch(site.path, normalizedPath))
+      .sort((left, right) => right.path.length - left.path.length)[0];
+
+    if (matched) {
+      return matched;
+    }
+
+    const primary = await this.getPrimarySite();
+    if (primary?.status === "active") {
+      return primary;
+    }
+
+    return null;
   }
 }

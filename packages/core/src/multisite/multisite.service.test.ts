@@ -39,6 +39,11 @@ interface SiteRow {
 function createMockDb(initialSites: SiteRow[]) {
   let rows = initialSites.map((site) => ({ ...site }));
 
+  const queryResult = <T,>(result: T[]) => ({
+    then: (resolve: (value: T[]) => unknown) => Promise.resolve(result).then(resolve),
+    limit: vi.fn(async (limit: number) => result.slice(0, limit)),
+  });
+
   const buildSelect = (shape?: Record<string, unknown>) => ({
     from: vi.fn(() => ({
       orderBy: vi.fn(async (field: keyof SiteRow) =>
@@ -47,14 +52,13 @@ function createMockDb(initialSites: SiteRow[]) {
           .sort((a, b) => compareAscending(a[field], b[field]))
           .map((row) => (shape ? projectRow(row, shape) : { ...row }))
       ),
-      where: vi.fn((predicate: (row: SiteRow) => boolean) => ({
-        limit: vi.fn(async (limit: number) =>
+      where: vi.fn((predicate: (row: SiteRow) => boolean) =>
+        queryResult(
           rows
             .filter(predicate)
-            .slice(0, limit)
             .map((row) => (shape ? projectRow(row, shape) : { ...row }))
-        ),
-      })),
+        )
+      ),
     })),
   });
 
@@ -134,13 +138,35 @@ describe("MultisiteService", () => {
         createdAt: new Date("2026-06-07T00:00:00.000Z"),
         updatedAt: new Date("2026-06-07T00:00:00.000Z"),
       },
+      {
+        id: 3,
+        name: "Docs Root",
+        domain: "docs.example.com",
+        path: "/",
+        status: "active",
+        isPrimary: false,
+        meta: {},
+        createdAt: new Date("2026-06-07T00:00:00.000Z"),
+        updatedAt: new Date("2026-06-07T00:00:00.000Z"),
+      },
+      {
+        id: 4,
+        name: "Archived Docs",
+        domain: "docs.example.com",
+        path: "/archive/",
+        status: "archived",
+        isPrimary: false,
+        meta: {},
+        createdAt: new Date("2026-06-07T00:00:00.000Z"),
+        updatedAt: new Date("2026-06-07T00:00:00.000Z"),
+      },
     ]);
     service = new MultisiteService(db as never);
   });
 
   it("lists sites in ascending id order", async () => {
     const sites = await service.listSites();
-    expect(sites.map((site) => site.id)).toEqual([1, 2]);
+    expect(sites.map((site) => site.id)).toEqual([1, 2, 3, 4]);
   });
 
   it("creates a site with normalized domain and path", async () => {
@@ -186,6 +212,26 @@ describe("MultisiteService", () => {
   it("returns the primary site", async () => {
     const site = await service.getPrimarySite();
     expect(site?.id).toBe(1);
+  });
+
+  it("resolves the longest matching active site path for a domain", async () => {
+    const site = await service.resolveSite("docs.example.com", "/docs/guides/getting-started");
+    expect(site?.id).toBe(2);
+  });
+
+  it("falls back to the domain root site when no longer path matches", async () => {
+    const site = await service.resolveSite("docs.example.com", "/pricing");
+    expect(site?.id).toBe(3);
+  });
+
+  it("falls back to the primary site when no domain match exists", async () => {
+    const site = await service.resolveSite("unknown.example.com", "/");
+    expect(site?.id).toBe(1);
+  });
+
+  it("ignores archived sites during resolution", async () => {
+    const site = await service.resolveSite("docs.example.com", "/archive/release-notes");
+    expect(site?.id).toBe(3);
   });
 
   it("throws when a site is missing", async () => {
