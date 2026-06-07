@@ -6,6 +6,7 @@ import { services } from "@/lib/services";
 import { formatDate, isoDate, excerptFrom, getSiteSettings } from "@/lib/site";
 import { getActivePublicTheme, getThemeTemplate } from "@/themes/public-theme";
 import { renderThemeTemplate } from "@/themes/template-renderer";
+import { CommentForm } from "@/components/comment-form";
 
 export const dynamic = "force-dynamic";
 
@@ -208,6 +209,7 @@ export default async function EntryPage({
               </li>
             ))}
           </ul>
+          <CommentForm postId={entry.id} />
         </section>
       ) : null}
 

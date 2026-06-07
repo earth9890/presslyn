@@ -9,10 +9,13 @@
  */
 
 import { Hono } from "hono";
-import { CreateCommentSchema } from "@presslyn/core";
 import type { RestEnv } from "../middleware.js";
 import { parseId, requireCap, hasCap } from "../helpers.js";
 import { handleRestError } from "../error-handler.js";
+import {
+  assertPublicCommentTarget,
+  PublicCommentSubmissionSchema,
+} from "../../comments/public-comment.js";
 
 const comments = new Hono<RestEnv>();
 
@@ -64,8 +67,10 @@ comments.post("/", async (c) => {
     const services = c.get("services");
     const body = await c.req.json();
 
-    const validated = CreateCommentSchema.parse(body);
-    const comment = await services.comments.createComment(validated);
+    const validated = PublicCommentSubmissionSchema.parse(body);
+    await assertPublicCommentTarget(services.content, services.comments, validated);
+    const { website: _website, ...commentInput } = validated;
+    const comment = await services.comments.createComment(commentInput);
     return c.json(comment, 201);
   } catch (err) {
     return handleRestError(err, c);
