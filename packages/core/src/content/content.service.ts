@@ -349,9 +349,12 @@ export class ContentService {
     if (slug) conditions.push(eq(posts.slug, slug));
     if (search) {
       const pattern = `%${escapeLike(search)}%`;
-      conditions.push(
-        or(like(posts.title, pattern), like(posts.content, pattern), like(posts.excerpt, pattern))
+      const searchCondition = or(
+        like(posts.title, pattern),
+        like(posts.content, pattern),
+        like(posts.excerpt, pattern)
       );
+      if (searchCondition) conditions.push(searchCondition);
     }
     if (parentId !== undefined) {
       if (parentId === null) {
