@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Menu01Icon,
   Notification02Icon,
@@ -13,6 +12,7 @@ import {
   type AdminColorSchemeId,
 } from "@/config/navigation";
 import { cn } from "@/lib/utils";
+import { AdminNavLink } from "./admin-navigation";
 
 interface TopbarProps {
   onMenuToggle?: () => void;
@@ -45,12 +45,13 @@ export function Topbar({
             </button>
           ) : null}
 
-          <Link
+          <AdminNavLink
             href="/"
+            pendingLabel="Opening Dashboard"
             className="hidden h-8 items-center rounded-xl px-3 text-[13px] font-semibold tracking-[0.01em] text-admin-bar-text transition-colors hover:bg-admin-bar-hover hover:text-admin-bar-text-active sm:flex"
           >
             Presslyn
-          </Link>
+          </AdminNavLink>
           <a
             href="http://localhost:3000"
             target="_blank"
@@ -59,13 +60,14 @@ export function Topbar({
           >
             Visit Site
           </a>
-          <Link
+          <AdminNavLink
             href="/comments"
+            pendingLabel="Opening Comments"
             className="hidden h-8 items-center gap-1 rounded-xl px-3 text-[13px] text-admin-bar-text transition-colors hover:bg-admin-bar-hover hover:text-admin-bar-text-active lg:flex"
           >
             <Notification02Icon size={14} />
             <span>Comments</span>
-          </Link>
+          </AdminNavLink>
         </div>
 
         <div className="flex items-center">

@@ -36,12 +36,16 @@
     "@tiptap/starter-kit": "^3.22.4",
     "@trpc/client": "^11.0.0",
     "@trpc/react-query": "^11.0.0",
+    "argon2": "^0.44.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "file-type": "^22.0.1",
     "hugeicons-react": "^0.4.0",
-    "next": "^15.0.0",
+    "next": "^15.5.18",
+    "postgres": "^3.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sharp": "^0.34.5",
     "superjson": "^2.2.0",
     "tailwind-merge": "^3.5.0"
   },
@@ -50,7 +54,7 @@
     "@tailwindcss/postcss": "^4.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "postcss": "^8.4.0",
+    "postcss": "^8.5.10",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0"
   }

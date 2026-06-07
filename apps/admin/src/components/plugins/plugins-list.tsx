@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PuzzleIcon, CheckmarkCircle01Icon } from "hugeicons-react";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { useAdminNavigation } from "@/components/layout/admin-navigation";
 
 export interface PluginItem {
   id: string;
@@ -16,6 +17,7 @@ export interface PluginItem {
 
 export function PluginsList({ plugins }: { plugins: PluginItem[] }) {
   const router = useRouter();
+  const { startRefresh } = useAdminNavigation();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -27,6 +29,11 @@ export function PluginsList({ plugins }: { plugins: PluginItem[] }) {
       await apiFetch(`/api/v1/plugins/${plugin.id}/${action}`, {
         method: "POST",
       });
+      startRefresh(
+        plugin.active
+          ? `Disabling ${plugin.name}`
+          : `Activating ${plugin.name}`
+      );
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Action failed.");

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PaintBoardIcon, CheckmarkCircle01Icon } from "hugeicons-react";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { useAdminNavigation } from "@/components/layout/admin-navigation";
 
 export interface ThemeItem {
   id: string;
@@ -16,6 +17,7 @@ export interface ThemeItem {
 
 export function ThemesList({ themes }: { themes: ThemeItem[] }) {
   const router = useRouter();
+  const { startRefresh } = useAdminNavigation();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -24,6 +26,8 @@ export function ThemesList({ themes }: { themes: ThemeItem[] }) {
     setError("");
     try {
       await apiFetch(`/api/v1/themes/${id}/activate`, { method: "POST" });
+      const theme = themes.find((entry) => entry.id === id);
+      startRefresh(theme ? `Activating ${theme.name}` : "Activating theme");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not activate theme.");

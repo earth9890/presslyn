@@ -1,8 +1,8 @@
 # Presslyn — Development Progress
 
 **Started**: April 11, 2026
-**Current Phase**: Phase 4 — Public Frontend
-**Tests**: 296 passing (19 test files)
+**Current Phase**: Phase 4.1 + Phase 6.4 remaining
+**Tests**: 300 passing (20 test files)
 **Build**: 7 packages, zero errors
 
 ---
@@ -15,7 +15,7 @@
 | Phase 2: API Layer | COMPLETE | 2/2 |
 | Phase 3: Admin UI | COMPLETE | 12/12 |
 | Phase 4: Public Frontend | In Progress | 3/4 |
-| Phase 5: Extensibility | In Progress | 2/3 |
+| Phase 5: Extensibility | COMPLETE | 3/3 |
 | Phase 6: Operations | In Progress | 4/5 |
 
 ---
@@ -102,7 +102,7 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 |---|--------|--------|------|-------|
 | 5.1 | Plugin System | VALIDATED | Jun 4, 2026 | Core `PluginManager` (manifest schema, register, activate/deactivate persisted to `active_plugins`, bootActivePlugins, activate/deactivate actions) over the hook system; 9 unit tests. Wired into `Services`, exposed via `/api/v1/plugins/*`, surfaced on the admin Plugins screen, with a bundled "Hello Presslyn" example. Filesystem discovery + dynamic import of external plugin packages is the remaining loader piece. |
 | 5.2 | Theme API | VALIDATED | Jun 4, 2026 | Core `ThemeManager` (manifest schema, register, list, getActive, activate persisted to `active_theme`, `switch_theme` action); 4 unit tests. Wired into `Services`, exposed via `/api/v1/themes/*`, surfaced on the admin Appearance screen, bundled "Presslyn Default". Customizer / child themes / theme.json rendering are part of the Phase 4.1 engine. |
-| 5.3 | Block Registration | Not Started | | Custom blocks, patterns, styles |
+| 5.3 | Block Registration | VALIDATED | Jun 7, 2026 | Added a core `BlockRegistry` with typed block manifests, default categories, custom category registration, patterns, styles, and optional server-side renderers. Wired into the shared services container and covered with 4 unit tests. Editor/UI integration remains part of the future theme/block engine work, but the registration API itself now exists and is validated. |
 
 ## Phase 6: Operations
 
@@ -117,6 +117,12 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 ---
 
 ## Changelog
+
+### Jun 7, 2026 — Phase 5.3 complete + admin navigation feedback + dependency hardening
+- **Phase 5.3 — Block Registration**: added a core `BlockRegistry` with strict Zod-validated block manifests, default categories, custom category registration, block patterns, block styles, and optional async server-side renderers. Exported from `@presslyn/core`, wired into the shared `Services` container, and covered with 4 unit tests — **Phase 5 is now COMPLETE (3/3)**.
+- **Admin perceived performance**: added a client-side admin navigation layer that prefetches routes, shows an immediate top-of-screen progress state during route transitions and refreshes, and upgraded the route `loading.tsx` into a fuller skeleton/loading surface. Wired this through the sidebar, topbar, primary actions, Plugins actions, and Theme activation so slow pages finally show feedback instead of silently hanging.
+- **Dependency/security hardening**: upgraded the audited stack (`next`, `hono`, `nodemailer`, `drizzle-orm`, `fast-xml-parser`, `vitest`, `turbo`, `drizzle-kit`, `typescript-eslint`) and added root `pnpm` overrides for the remaining transitive advisory packages (`brace-expansion`, `esbuild`, `postcss`). Reinstalled and revalidated the workspace cleanly.
+- Validation: `pnpm audit` clean, `pnpm typecheck` passes, `pnpm --filter @presslyn/core test` passes (300 tests / 20 files), `pnpm --filter @presslyn/admin build` passes, `pnpm --filter @presslyn/web build` passes.
 
 ### Jun 4, 2026 — Phase 5.2 + 3.9: Theme manager + Appearance (Phase 3 COMPLETE)
 - Core `ThemeManager` mirroring the plugin pattern: manifest schema, register, list, getActive, activate (persists `active_theme`, fires `switch_theme` with old/new). 4 unit tests — 296 core tests total.

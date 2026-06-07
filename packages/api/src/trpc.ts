@@ -16,6 +16,7 @@ import {
   OptionsService,
   MediaService,
   PluginManager,
+  BlockRegistry,
   ThemeManager,
   type StorageAdapter,
 } from "@presslyn/core";
@@ -32,6 +33,7 @@ export interface Services {
   options: OptionsService;
   media: MediaService;
   plugins: PluginManager;
+  blocks: BlockRegistry;
   themes: ThemeManager;
 }
 
@@ -51,6 +53,7 @@ export function createServices(db: Database, storage: StorageAdapter): Services 
 
   const themes = new ThemeManager(options);
   registerBundledThemes(themes);
+  const blocks = new BlockRegistry();
 
   return {
     content: new ContentService(db),
@@ -60,6 +63,7 @@ export function createServices(db: Database, storage: StorageAdapter): Services 
     options,
     media: new MediaService(db, storage),
     plugins,
+    blocks,
     themes,
   };
 }

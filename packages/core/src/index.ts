@@ -167,6 +167,22 @@ export {
   type PluginOptionStore,
 } from "./plugins/index.js";
 
+// Blocks
+export {
+  BlockRegistry,
+  BlockCategorySchema,
+  BlockManifestSchema,
+  BlockPatternSchema,
+  BlockStyleSchema,
+  type BlockCategory,
+  type BlockManifest,
+  type BlockPattern,
+  type BlockStyle,
+  type BlockAttributes,
+  type BlockRenderContext,
+  type BlockDefinition,
+} from "./blocks/index.js";
+
 // Themes
 export {
   ThemeManager,

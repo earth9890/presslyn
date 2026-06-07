@@ -1,6 +1,4 @@
 "use client";
-
-import Link from "next/link";
 import {
   HelpCircleIcon,
   Cancel01Icon,
@@ -25,6 +23,11 @@ import {
   type AdminColorSchemeId,
 } from "@/config/navigation";
 import { cn } from "@/lib/utils";
+import {
+  AdminNavLink,
+  AdminNavigationProvider,
+  useAdminNavigation,
+} from "./admin-navigation";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
@@ -52,8 +55,17 @@ const DEFAULT_PREFERENCES: ScreenPreferences = {
 };
 
 export function AdminLayout({ children }: AdminLayoutProps) {
+  return (
+    <AdminNavigationProvider>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </AdminNavigationProvider>
+  );
+}
+
+function AdminLayoutInner({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { isPending, pendingLabel, startNavigation } = useAdminNavigation();
   const pageKey = useMemo(() => getAdminPageKey(pathname), [pathname]);
   const screenConfig = useMemo(
     () => getAdminScreenConfig(pathname),
@@ -223,6 +235,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     }
 
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    startNavigation("Refreshing list");
   };
 
   const currentNotice =
@@ -271,6 +284,33 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       `}</style>
 
       <div className="presslyn-admin-main pt-11">
+        <div
+          aria-hidden={!isPending}
+          className={cn(
+            "pointer-events-none sticky top-11 z-40 px-5 pt-4 transition-all duration-200 lg:px-8",
+            isPending
+              ? "translate-y-0 opacity-100"
+              : "-translate-y-2 opacity-0"
+          )}
+        >
+          <div className="overflow-hidden rounded-2xl border border-accent/15 bg-surface/92 shadow-[0_20px_40px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+            <div className="h-1 w-full bg-accent/12">
+              <div className="presslyn-admin-progress h-full w-1/3 rounded-full bg-accent" />
+            </div>
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-accent" />
+                <p className="truncate text-[13px] font-medium text-text-primary">
+                  {pendingLabel}
+                </p>
+              </div>
+              <p className="text-[11px] uppercase tracking-[0.08em] text-text-muted">
+                Fetching fresh data
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="border-b border-border/80 bg-surface/78 backdrop-blur-sm">
           <div className="flex min-h-[112px] flex-col justify-between gap-5 px-5 py-6 lg:flex-row lg:items-start lg:px-8">
             <div className="min-w-0">
@@ -289,12 +329,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
             <div className="flex flex-wrap items-center gap-2.5">
               {screenConfig.primaryAction ? (
-                <Link
+                <AdminNavLink
                   href={screenConfig.primaryAction.href}
+                  pendingLabel={screenConfig.primaryAction.label}
                   className="inline-flex h-10 items-center rounded-2xl border border-accent bg-accent px-4 text-[13px] font-semibold text-white shadow-[0_10px_24px_var(--presslyn-accent-glow)] transition-colors hover:bg-accent-hover"
                 >
                   {screenConfig.primaryAction.label}
-                </Link>
+                </AdminNavLink>
               ) : null}
               <button
                 type="button"
