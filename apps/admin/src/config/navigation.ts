@@ -11,6 +11,7 @@ import {
   UserGroupIcon,
   Wrench01Icon,
   Settings01Icon,
+  Home09Icon,
 } from "hugeicons-react";
 import type { ComponentType } from "react";
 
@@ -82,6 +83,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Appearance", href: "/appearance", icon: PaintBoardIcon, position: 60 },
   { label: "Plugins", href: "/plugins", icon: PuzzleIcon, position: 65 },
   { label: "Users", href: "/users", icon: UserGroupIcon, position: 70 },
+  { label: "Network", href: "/network", icon: Home09Icon, position: 74 },
   { label: "Tools", href: "/tools", icon: Wrench01Icon, position: 75 },
   { label: "Settings", href: "/settings", icon: Settings01Icon, position: 80 },
 ];
@@ -326,6 +328,25 @@ const ADMIN_SCREEN_CONFIGS: Record<string, AdminScreenConfig> = {
         body: "Tools is where one-off operations such as importers, exports, and health reports will live.",
       },
     ],
+  },
+  "/network": {
+    title: "Network",
+    description:
+      "Manage the multisite network, provision additional sites, and keep track of their current network status.",
+    helpSections: [
+      {
+        title: "Foundation",
+        body: "This first multisite slice manages site records and network status while tenant-specific content isolation is still arriving.",
+      },
+      {
+        title: "Site records",
+        body: "Each site currently tracks domain, path, lifecycle state, and metadata. Domain mapping and per-site data routing land later in Phase 6.4.",
+      },
+    ],
+    primaryAction: {
+      label: "Add Site",
+      href: "/network",
+    },
   },
   "/settings": {
     title: "Settings",

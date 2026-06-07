@@ -2,7 +2,7 @@
 
 **Started**: April 11, 2026
 **Current Phase**: Phase 4.1 + Phase 6.4 remaining
-**Tests**: 312 passing (24 test files)
+**Tests**: 320 passing (24 test files)
 **Build**: 7 packages, zero errors
 
 ---
@@ -111,12 +111,19 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 | 6.1 | Caching | VALIDATED | Jun 4, 2026 | Pluggable async object cache: `CacheStore` interface with `MemoryStore` (default, injectable clock) and a lazy-ioredis `RedisStore`, plus a WordPress-style `Transients` API (`get`/`set`/`delete`/`flush`/`remember`) and `cacheStoreFromEnv` (Redis when `REDIS_URL` set). 10 unit tests. Added alongside the existing per-request in-memory `CacheService` (untouched). Next.js ISR / CDN tuning is a deploy-time concern. |
 | 6.2 | Email | VALIDATED | Jun 4, 2026 | Core EmailService with a transport abstraction (LogTransport default, CapturingTransport for tests, nodemailer SmtpTransport lazily loaded, `transportFromEnv`), HTML+text templates (welcome, password reset, comment notification) with escaping, and `email_message` filter + `email_sent` action hooks. 6 unit tests. Wiring into auth/registration flows is pending a password-reset-token system. |
 | 6.3 | WP Importer | VALIDATED | Jun 4, 2026 | WXR importer completing the migration round-trip with the exporter: core `parseWxr` (fast-xml-parser, 7 round-trip tests through `buildWxr`) + idempotent `importWxr` (ensures categories/tags, maps authors to existing users by login, creates posts/pages with term assignment + comments, skips existing slugs). `POST /api/v1/import` (multipart, `import` capability, 25MB cap, parse errors → 400) and a Tools import button that reports a summary. Media re-download/re-linking still pending. |
-| 6.4 | Multisite | Not Started | | Network admin, site management |
+| 6.4 | Multisite | In Progress | Jun 7, 2026 | Foundation slice shipped: added a `sites` table + migration/seeded primary site, strict `CreateSite`/`UpdateSite` schemas, a `MultisiteService` with duplicate prevention and primary-site protection, REST routes for list/create/update, and a real `/network` admin screen for managing site records. Domain mapping, per-site content isolation, and tenant-aware routing are still pending. |
 | 6.5 | CLI Completion | VALIDATED | Jun 4, 2026 | `presslyn` CLI (commander) with service-backed commands: `status`, `user:create`, `user:list`, `post:list`, `export --out`, `import <file>`; `db:migrate`/`db:seed` delegate to the database package scripts. Live-validated against a real Postgres DB (created + migrated + seeded this session): status/lists work, and a full export → idempotent re-import → modified-import round-trip behaves correctly. |
 
 ---
 
 ## Changelog
+
+### Jun 7, 2026 — Phase 6.4 progress: multisite foundation
+- Added the first multisite persistence layer: a new `sites` table with `(domain, path)` uniqueness, site lifecycle status, primary-site flag, JSON metadata, a migration, and an idempotent seeded primary site for local installs.
+- Added strict `CreateSiteSchema` / `UpdateSiteSchema` validation plus a core `MultisiteService` that lists, creates, updates, and resolves the primary site while normalizing domains/paths, rejecting duplicate site addresses, and preventing the primary site from being archived or deleted.
+- Wired the service into shared API services and exposed `GET /api/v1/sites`, `POST /api/v1/sites`, and `PUT /api/v1/sites/:id` behind the existing `manage_options` capability gate.
+- Added a new admin Network screen at `/network` with site creation, lifecycle actions, and live refresh feedback through the same admin navigation/loading system used elsewhere.
+- Validation: `pnpm --filter @presslyn/core test` passes (320 tests / 24 files), `pnpm typecheck` passes, `pnpm --filter @presslyn/web build` passes, `pnpm --filter @presslyn/admin build` passes.
 
 ### Jun 7, 2026 — Phase 4.1 progress: sidebar template parts
 - Extended the shared theme config schema so themes can declare an optional `sidebar` template part and opt specific templates into sidebar layouts with `showSidebar`.

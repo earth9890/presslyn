@@ -11,7 +11,7 @@
 
 import { randomBytes } from "crypto";
 import { db } from "./connection.js";
-import { users, options, taxonomies, terms, posts } from "./schema.js";
+import { users, options, taxonomies, terms, posts, sites } from "./schema.js";
 import { sql } from "drizzle-orm";
 
 // We use argon2 via a dynamic import since this is a seed script
@@ -96,6 +96,24 @@ async function seed() {
     if (result.length > 0) optionsInserted++;
   }
   console.log(`  + ${optionsInserted} options set (${defaultOptions.length - optionsInserted} already existed)`);
+
+  // ─── Primary Site ────────────────────────────────────────
+  console.log("Creating primary site...");
+  const [primarySite] = await db
+    .insert(sites)
+    .values({
+      name: "Presslyn Site",
+      domain: "localhost:3000",
+      path: "/",
+      status: "active",
+      isPrimary: true,
+      meta: {},
+    })
+    .onConflictDoNothing({ target: [sites.domain, sites.path] })
+    .returning();
+
+  if (primarySite) console.log(`  + Primary site created (id: ${primarySite.id})`);
+  else console.log("  = Primary site already exists");
 
   // ─── Default Taxonomies ──────────────────────────────────
   console.log("Creating default taxonomies...");

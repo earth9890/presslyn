@@ -13,6 +13,8 @@ export {
   TermQuerySchema,
   CreateCommentSchema,
   CommentQuerySchema,
+  CreateSiteSchema,
+  UpdateSiteSchema,
 } from "./schemas.js";
 
 // Hook System
@@ -209,6 +211,13 @@ export {
   type StyleVariation,
   type ThemeVariant,
 } from "./themes/index.js";
+
+// Multisite
+export {
+  MultisiteService,
+  type CreateSiteInput,
+  type UpdateSiteInput,
+} from "./multisite/index.js";
 
 // Import (WXR)
 export {

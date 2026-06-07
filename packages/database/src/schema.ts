@@ -29,6 +29,12 @@ export const commentStatusEnum = pgEnum("comment_status", [
   "closed",
 ]);
 
+export const siteStatusEnum = pgEnum("site_status", [
+  "active",
+  "archived",
+  "deleted",
+]);
+
 // ─── Users ───────────────────────────────────────────────────
 
 export const users = pgTable("users", {
@@ -208,6 +214,27 @@ export const options = pgTable("options", {
   value: jsonb("value").$type<unknown>(),
   autoload: boolean("autoload").notNull().default(true),
 });
+
+// ─── Multisite ───────────────────────────────────────────────
+
+export const sites = pgTable(
+  "sites",
+  {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    domain: varchar("domain", { length: 255 }).notNull(),
+    path: varchar("path", { length: 255 }).notNull().default("/"),
+    status: siteStatusEnum("status").notNull().default("active"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    meta: jsonb("meta").$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("sites_domain_path_idx").on(table.domain, table.path),
+    index("sites_status_idx").on(table.status),
+  ]
+);
 
 // ─── Sessions ────────────────────────────────────────────────
 

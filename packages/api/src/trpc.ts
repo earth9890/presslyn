@@ -18,6 +18,7 @@ import {
   PluginManager,
   BlockRegistry,
   ThemeManager,
+  MultisiteService,
   discoverFilesystemThemes,
   resolveThemesDirectory,
   type StorageAdapter,
@@ -37,6 +38,7 @@ export interface Services {
   plugins: PluginManager;
   blocks: BlockRegistry;
   themes: ThemeManager;
+  multisite: MultisiteService;
 }
 
 /**
@@ -77,6 +79,7 @@ export function createServices(db: Database, storage: StorageAdapter): Services 
     plugins,
     blocks,
     themes,
+    multisite: new MultisiteService(db),
   };
 }
 
