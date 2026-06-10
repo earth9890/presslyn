@@ -22,6 +22,11 @@ function createMockStorage() {
       files.set(filepath, buffer);
       return `/uploads/${filepath}`;
     }),
+    read: vi.fn(async (filepath: string) => {
+      const buf = files.get(filepath);
+      if (!buf) throw new Error(`ENOENT: ${filepath}`);
+      return buf;
+    }),
     delete: vi.fn(async (filepath: string) => {
       files.delete(filepath);
     }),

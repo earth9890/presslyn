@@ -27,6 +27,23 @@ const UpdateMediaBodySchema = z
   })
   .strict();
 
+/** Image edit operations (rotate / flip / crop). */
+const EditImageBodySchema = z
+  .object({
+    rotate: z.number().int().optional(),
+    flipVertical: z.boolean().optional(),
+    flipHorizontal: z.boolean().optional(),
+    crop: z
+      .object({
+        left: z.number().min(0),
+        top: z.number().min(0),
+        width: z.number().positive(),
+        height: z.number().positive(),
+      })
+      .optional(),
+  })
+  .strict();
+
 const media = new Hono<RestEnv>();
 
 /**
@@ -41,6 +58,8 @@ media.get("/", async (c) => {
     const result = await services.media.query({
       mimeType: query.mimeType as string | undefined,
       search: query.search as string | undefined,
+      dateFrom: query.dateFrom as string | undefined,
+      dateTo: query.dateTo as string | undefined,
       orderBy: query.orderBy as "id" | "date" | "title" | undefined,
       order: query.order as "asc" | "desc" | undefined,
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -132,6 +151,26 @@ media.put("/:id", async (c) => {
 
     const validated = UpdateMediaBodySchema.parse(body);
     const updated = await services.media.update(id, validated);
+    return c.json(updated, 200);
+  } catch (err) {
+    return handleRestError(err, c);
+  }
+});
+
+/**
+ * POST /media/:id/edit
+ * Apply rotate / flip / crop edits to an image, overwriting the original and
+ * regenerating thumbnails. Requires auth + upload_files capability.
+ */
+media.post("/:id/edit", async (c) => {
+  try {
+    await requireCap(c, "upload_files");
+    const services = c.get("services");
+    const id = parseId(c);
+    const body = await c.req.json();
+
+    const ops = EditImageBodySchema.parse(body);
+    const updated = await services.media.editImage(id, ops);
     return c.json(updated, 200);
   } catch (err) {
     return handleRestError(err, c);

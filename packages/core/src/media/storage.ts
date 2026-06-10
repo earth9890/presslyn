@@ -12,6 +12,8 @@ import fs from "fs/promises";
 export interface StorageAdapter {
   /** Save a file and return its public URL. filepath is storage-relative. */
   save(filepath: string, buffer: Buffer): Promise<string>;
+  /** Read a file's bytes by its storage-relative filepath. */
+  read(filepath: string): Promise<Buffer>;
   /** Delete a file by its storage-relative filepath. */
   delete(filepath: string): Promise<void>;
   /** Get the public URL for a storage-relative filepath. */
@@ -45,6 +47,11 @@ export class LocalStorageAdapter implements StorageAdapter {
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, buffer);
     return this.getUrl(filepath);
+  }
+
+  async read(filepath: string): Promise<Buffer> {
+    const fullPath = this.resolveSafe(filepath);
+    return fs.readFile(fullPath);
   }
 
   async delete(filepath: string): Promise<void> {

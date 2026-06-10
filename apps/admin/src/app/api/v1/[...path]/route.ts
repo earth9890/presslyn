@@ -9,7 +9,7 @@ import { LocalStorageAdapter } from "@presslyn/core";
 import path from "path";
 
 const storage = new LocalStorageAdapter(
-  path.join(process.cwd(), "public/uploads"),
+  process.env.PRESSLYN_UPLOADS_DIR ?? path.join(process.cwd(), "public/uploads"),
   "/uploads"
 );
 
