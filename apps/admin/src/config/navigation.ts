@@ -363,6 +363,21 @@ const ADMIN_SCREEN_CONFIGS: Record<string, AdminScreenConfig> = {
       },
     ],
   },
+  "/profile": {
+    title: "Profile",
+    description:
+      "Update your own account details and change your password. This is your personal profile, separate from the Users management screen.",
+    helpSections: [
+      {
+        title: "Your profile",
+        body: "Email and display name are editable here. Username and role are fixed — role changes are an administrator action on the Users screen.",
+      },
+      {
+        title: "Password",
+        body: "Changing your password requires your current password for verification.",
+      },
+    ],
+  },
 };
 
 export function getAdminPageKey(pathname: string): string {
@@ -376,7 +391,12 @@ export function getAdminPageKey(pathname: string): string {
   }
 
   const parentPath = `/${segments[0]}`;
-  return PAGE_TITLES[parentPath] ? parentPath : "/";
+  if (PAGE_TITLES[parentPath]) {
+    return parentPath;
+  }
+  // Screens that aren't top-level nav items (e.g. /profile) still carry
+  // their own chrome config — fall back to that before the dashboard.
+  return ADMIN_SCREEN_CONFIGS[parentPath] ? parentPath : "/";
 }
 
 export function getAdminScreenConfig(pathname: string): AdminScreenConfig {

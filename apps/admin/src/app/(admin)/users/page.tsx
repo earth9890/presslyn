@@ -1,25 +1,9 @@
 import Link from "next/link";
-import { Search01Icon, UserCircleIcon } from "hugeicons-react";
+import { Search01Icon } from "hugeicons-react";
 import { services } from "@/lib/services";
-import { UserRowActions } from "@/components/users/user-row-actions";
+import { UsersTable } from "@/components/users/users-table";
 
 export const dynamic = "force-dynamic";
-
-const ROLE_LABELS: Record<string, string> = {
-  administrator: "Administrator",
-  editor: "Editor",
-  author: "Author",
-  contributor: "Contributor",
-  subscriber: "Subscriber",
-};
-
-const ROLE_STYLES: Record<string, string> = {
-  administrator: "bg-danger/10 text-danger border-danger/20",
-  editor: "bg-accent/10 text-accent border-accent/20",
-  author: "bg-success/10 text-success border-success/20",
-  contributor: "bg-warning/10 text-warning border-warning/20",
-  subscriber: "bg-text-muted/10 text-text-secondary border-border",
-};
 
 export default async function UsersPage({
   searchParams,
@@ -120,100 +104,19 @@ export default async function UsersPage({
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-border bg-surface overflow-hidden">
-        {userList.length === 0 ? (
-          <div className="py-16 text-center">
-            <UserCircleIcon size={32} className="mx-auto mb-3 text-text-muted" />
-            <p className="text-sm text-text-secondary">No users found.</p>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface-raised text-left">
-                <th className="w-8 px-4 py-3">
-                  <input type="checkbox" className="rounded border-border" aria-label="Select all" />
-                </th>
-                <th className="px-4 py-3 font-medium text-text-primary">User</th>
-                <th
-                  data-column="email"
-                  className="hidden px-4 py-3 font-medium text-text-primary sm:table-cell"
-                >
-                  Email
-                </th>
-                <th
-                  data-column="role"
-                  className="hidden px-4 py-3 font-medium text-text-primary md:table-cell"
-                >
-                  Role
-                </th>
-                <th
-                  data-column="joined"
-                  className="hidden px-4 py-3 font-medium text-text-primary lg:table-cell"
-                >
-                  Joined
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {userList.map((user) => {
-                const initials = (user.displayName || user.username)
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase();
-
-                return (
-                  <tr key={user.id} className="group hover:bg-surface-raised transition-colors">
-                    <td className="px-4 py-3">
-                      <input type="checkbox" className="rounded border-border" aria-label={`Select ${user.username}`} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent text-xs font-semibold">
-                          {initials}
-                        </div>
-                        <div className="min-w-0">
-                          <Link
-                            href={`/users/${user.id}/edit`}
-                            className="block truncate font-medium text-text-primary hover:text-accent transition-colors"
-                          >
-                            {user.displayName || user.username}
-                          </Link>
-                          <p className="truncate text-xs text-text-muted">@{user.username}</p>
-                          <UserRowActions userId={user.id} username={user.username} />
-                        </div>
-                      </div>
-                    </td>
-                    <td
-                      data-column="email"
-                      className="hidden px-4 py-3 text-text-secondary sm:table-cell"
-                    >
-                      {user.email}
-                    </td>
-                    <td
-                      data-column="role"
-                      className="hidden px-4 py-3 md:table-cell"
-                    >
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${ROLE_STYLES[user.role] ?? "bg-surface-raised text-text-secondary border-border"}`}
-                      >
-                        {ROLE_LABELS[user.role] ?? user.role}
-                      </span>
-                    </td>
-                    <td
-                      data-column="joined"
-                      className="hidden px-4 py-3 text-text-muted lg:table-cell"
-                    >
-                      {formatDate(user.createdAt)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <UsersTable
+        users={userList.map((user) => ({
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          email: user.email,
+          role: user.role,
+          createdAt:
+            user.createdAt instanceof Date
+              ? user.createdAt.toISOString()
+              : (user.createdAt ?? null),
+        }))}
+      />
 
       {filteredResult.total > limit ? (
         <div className="flex items-center justify-between text-sm">
@@ -244,15 +147,6 @@ export default async function UsersPage({
       ) : null}
     </div>
   );
-}
-
-function formatDate(date: Date | string | null) {
-  if (!date) return "—";
-  return new Date(date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 function buildListHref(

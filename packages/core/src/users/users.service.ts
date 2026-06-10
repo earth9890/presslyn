@@ -5,7 +5,7 @@
  * CRUD for users, authentication, session management.
  */
 
-import { eq, and, like, sql, desc, asc } from "drizzle-orm";
+import { eq, and, like, sql, desc, asc, inArray } from "drizzle-orm";
 import { type Database } from "@presslyn/database";
 import { users, sessions } from "@presslyn/database";
 import { hooks } from "../hooks.js";
@@ -313,6 +313,57 @@ export class UsersService {
 
     // Invalidate all sessions for this user
     await this.db.delete(sessions).where(eq(sessions.userId, userId));
+  }
+
+  /**
+   * Self-service password change. Verifies the current password before
+   * setting the new one (timing-safe via the argon2 verifier). Used by the
+   * own-profile screen, unlike the admin reset path (`changePassword`).
+   */
+  async changeOwnPassword(
+    userId: number,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    const [row] = await this.db
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!row) throw new NotFoundError("User", userId);
+
+    const valid = await verifyPassword(currentPassword, row.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedError("Current password is incorrect");
+    }
+
+    await this.changePassword(userId, newPassword);
+  }
+
+  /**
+   * Bulk-assign a role to multiple users in a single UPDATE (no N+1).
+   * Returns the number of rows updated. Validates the role exists first.
+   */
+  async bulkUpdateRole(userIds: number[], role: string): Promise<number> {
+    const ids = [...new Set(userIds)].filter(
+      (id) => Number.isInteger(id) && id > 0
+    );
+    if (ids.length === 0) return 0;
+    if (!getRole(role)) {
+      throw new ValidationError(`Role "${role}" does not exist`);
+    }
+
+    const updated = await this.db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(inArray(users.id, ids))
+      .returning({ id: users.id });
+
+    for (const row of updated) {
+      await hooks.doAction("set_user_role", row.id, role);
+    }
+    return updated.length;
   }
 
   // ─── Session Cleanup ─────────────────────────────────────

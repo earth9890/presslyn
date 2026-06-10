@@ -1,11 +1,14 @@
 /**
  * Users REST Routes
  *
- * GET    /users      — list users (requires list_users)
- * GET    /users/:id  — get user (own profile or list_users)
- * POST   /users      — create user (requires create_users)
- * PUT    /users/:id  — update user (requires edit_users)
- * DELETE /users/:id  — delete user (requires delete_users, no self-deletion)
+ * GET    /users             — list users (requires list_users)
+ * PUT    /users/me          — update own profile (auth)
+ * POST   /users/me/password — change own password (auth, verifies current)
+ * POST   /users/bulk-role   — bulk role change (requires edit_users)
+ * GET    /users/:id         — get user (own profile or list_users)
+ * POST   /users             — create user (requires create_users)
+ * PUT    /users/:id         — update user (requires edit_users)
+ * DELETE /users/:id         — delete user (requires delete_users, no self-deletion)
  */
 
 import { Hono } from "hono";
@@ -24,6 +27,30 @@ const users = new Hono<RestEnv>();
 /** Admin password reset payload — no current password (WordPress-style). */
 const SetPasswordSchema = z
   .object({ password: z.string().min(8).max(128) })
+  .strict();
+
+/** Self-service profile update — own email/display name only (no role/username). */
+const UpdateOwnProfileSchema = z
+  .object({
+    email: z.string().email().optional(),
+    displayName: z.string().min(1).max(250).optional(),
+  })
+  .strict();
+
+/** Self-service password change — requires the current password. */
+const ChangeOwnPasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(128),
+    newPassword: z.string().min(8).max(128),
+  })
+  .strict();
+
+/** Bulk role assignment payload. */
+const BulkRoleSchema = z
+  .object({
+    userIds: z.array(z.number().int().positive()).min(1).max(500),
+    role: z.string().min(1).max(50),
+  })
   .strict();
 
 /**
@@ -51,6 +78,65 @@ users.get("/", async (c) => {
     });
 
     return c.json(result, 200);
+  } catch (err) {
+    return handleRestError(err, c);
+  }
+});
+
+/**
+ * PUT /users/me
+ * Update the authenticated user's own profile (email + display name).
+ * Auth-only — no edit_users capability required, so any signed-in user can
+ * maintain their own profile. Role and username are intentionally excluded.
+ */
+users.put("/me", async (c) => {
+  try {
+    const userId = requireAuth(c);
+    const services = c.get("services");
+    const body = await c.req.json();
+
+    const validated = UpdateOwnProfileSchema.parse(body);
+    const updated = await services.users.updateUser(userId, validated);
+    return c.json(updated, 200);
+  } catch (err) {
+    return handleRestError(err, c);
+  }
+});
+
+/**
+ * POST /users/me/password
+ * Change the authenticated user's own password. Requires the current
+ * password (verified timing-safely) before applying the new one.
+ */
+users.post("/me/password", async (c) => {
+  try {
+    const userId = requireAuth(c);
+    const services = c.get("services");
+    const body = await c.req.json();
+
+    const { currentPassword, newPassword } = ChangeOwnPasswordSchema.parse(body);
+    await services.users.changeOwnPassword(userId, currentPassword, newPassword);
+    return c.json({ message: "Password updated" }, 200);
+  } catch (err) {
+    return handleRestError(err, c);
+  }
+});
+
+/**
+ * POST /users/bulk-role
+ * Assign a role to multiple users at once. Requires edit_users capability.
+ * The caller cannot change their own role here (avoids accidental lock-out).
+ */
+users.post("/bulk-role", async (c) => {
+  try {
+    const userId = await requireCap(c, "edit_users");
+    const services = c.get("services");
+    const body = await c.req.json();
+
+    const { userIds, role } = BulkRoleSchema.parse(body);
+    const targets = userIds.filter((id) => id !== userId);
+    const updated = await services.users.bulkUpdateRole(targets, role);
+    return c.json({ updated, skippedSelf: targets.length !== userIds.length }, 200);
   } catch (err) {
     return handleRestError(err, c);
   }

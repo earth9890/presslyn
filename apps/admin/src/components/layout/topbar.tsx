@@ -128,6 +128,14 @@ export function Topbar({
                   ))}
                 </select>
               </div>
+              <AdminNavLink
+                href="/profile"
+                pendingLabel="Loading your profile…"
+                className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary"
+              >
+                <UserCircleIcon size={14} />
+                <span>Edit My Profile</span>
+              </AdminNavLink>
               <button
                 type="button"
                 onClick={handleLogout}
