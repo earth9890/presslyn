@@ -2,8 +2,8 @@
 
 **Started**: April 11, 2026
 **Current Phase**: Phase 4.1 + Phase 6.4 remaining
-**Tests**: 390 passing (384 core + 6 api, 35 core test files)
-**Build**: 7 packages + 3 apps, zero errors
+**Tests**: 400 passing (394 core + 6 api)
+**Build**: 7 packages + 3 apps, zero errors; lint green across 11 workspaces
 
 ---
 
@@ -117,6 +117,21 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 ---
 
 ## Changelog
+
+### Jun 10, 2026 — Repo-wide hardening sweep (security, correctness, quality, a11y)
+Multi-round audit (security / core-correctness / frontend-editor / two convergence passes), fixing every confirmed finding until clean. Same branch.
+
+- **Lint made real**: apps ran `next lint` with no config (interactive → fail); packages had no lint at all. Wired ESLint 9 flat config across all 11 workspaces (`eslint .`), added `@next/eslint-plugin-next`, and fixed every finding (regex escapes, prefer-const, dead imports, typed the hook system + WXR XML nodes + REST error status — no stray `any`).
+- **Security**:
+  - Stored XSS (CRITICAL) — post bodies were stored/rendered raw; added `sanitizeContentHtml` (sanitize-html allowlist) on the content write path. Also escaped theme `{{...}}` interpolation (title/term/site fields) and the JSON-LD `<script>` serialization.
+  - Auth (CRITICAL) — moved the JWT off a JS-readable cookie to a server-set **HttpOnly + SameSite (+Secure prod)** cookie (middleware reads cookie or Bearer; logout clears it); added JWT revocation on password change (`tokensValidAfter`), enforced on capability- and auth-gated routes; self password-change re-issues the caller's cookie.
+  - SSRF (HIGH) — WXR media import blocks loopback/private/link-local/metadata hosts and re-validates every redirect hop; Content-Length pre-check.
+  - Authorization (HIGH) — content mutations/reads in both content factories now assert `postType` matches the router (the pages router could edit/delete posts and vice-versa).
+  - Privacy (LOW) — strip EXIF/GPS from stored original images; CORS allowlist; explicit DB pool/SSL.
+- **Correctness**: more legacy-schema query bugs (`queryTerms`, `getPostTerms`) that threw 42703; WXR comment loop no longer aborts the import; `PluginManager.activate` concurrency-safe; filesystem plugin discovery resilient to one bad dir; `ThemeManager` tolerates corrupt option data; `deleteUser` transactional; `CronService` idempotent `start()` + clamps long timeouts; `RedisStore.close()` + undefined-guard.
+- **Editor & frontend**: fixed the autosave phantom-loop (tags compared by name) + manual/autosave race + added a `beforeunload` unsaved-changes guard; media crop coordinate skew (object-contain letterbox) + pointer-capture release/cancel; drop-while-uploading guard; cookie-parse `=` truncation; web `error.tsx`; res.json guards.
+- **Accessibility**: keyboard-visible row actions (`group-focus-within`), account-menu Escape/outside-close, `aria-pressed` on the featured-image picker, off-screen comment honeypot.
+- Validation each round: lint 11/11, typecheck 11/11, tests (394 core + 6 api), build 7/7; auth/SSRF/revocation/EXIF flows live-verified server-side.
 
 ### Jun 10, 2026 — Issue sweep + remaining phase items + legacy-query perf fix
 Single branch `feat/phase-completion-perf-fixes`. Closed the open GitHub issues and the remaining PLAN gaps, then fixed a real navigation-breaking bug.
