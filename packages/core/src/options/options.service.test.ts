@@ -37,7 +37,7 @@ interface OptionRow {
 }
 
 function createMockDb(initialSites: SiteRow[], initialOptions: OptionRow[]) {
-  let sitesRows = initialSites.map((row) => ({ ...row }));
+  const sitesRows = initialSites.map((row) => ({ ...row }));
   let optionRows = initialOptions.map((row) => ({ ...row }));
 
   const queryResult = <T,>(result: T[]) => ({

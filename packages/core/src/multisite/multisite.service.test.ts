@@ -37,7 +37,7 @@ interface SiteRow {
 }
 
 function createMockDb(initialSites: SiteRow[]) {
-  let rows = initialSites.map((site) => ({ ...site }));
+  const rows = initialSites.map((site) => ({ ...site }));
 
   const queryResult = <T,>(result: T[]) => ({
     then: (resolve: (value: T[]) => unknown) => Promise.resolve(result).then(resolve),

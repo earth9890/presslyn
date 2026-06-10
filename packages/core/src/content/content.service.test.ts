@@ -72,7 +72,7 @@ interface PostRow {
 }
 
 function createMockDb(initialPosts: PostRow[]) {
-  let postsRows = initialPosts.map((row) => ({ ...row }));
+  const postsRows = initialPosts.map((row) => ({ ...row }));
 
   return {
     select: vi.fn((shape?: Record<string, unknown>) => ({

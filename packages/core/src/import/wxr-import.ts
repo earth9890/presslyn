@@ -75,9 +75,19 @@ export interface ImportSummary {
 
 const POST_STATUSES = new Set(["draft", "publish", "pending", "private"]);
 
+/** A parsed XML element from fast-xml-parser (untyped key/value bag). */
+type XmlNode = Record<string, unknown>;
+
 function toArray<T>(value: T | T[] | undefined | null): T[] {
   if (value === undefined || value === null) return [];
   return Array.isArray(value) ? value : [value];
+}
+
+/** Normalize a possibly-single/possibly-array XML child into an XmlNode[]. */
+function asNodes(value: unknown): XmlNode[] {
+  return toArray(value).filter(
+    (v): v is XmlNode => typeof v === "object" && v !== null
+  );
 }
 
 /** Resolve the text content of a node that may be a string or `{ "#text" }`. */
@@ -111,21 +121,22 @@ export function parseWxr(xml: string): ParsedWxr {
     trimValues: true,
   });
 
-  const doc = parser.parse(xml) as Record<string, any>;
-  const channel = doc?.rss?.channel;
+  const doc = parser.parse(xml) as Record<string, unknown>;
+  const rss = doc?.rss as XmlNode | undefined;
+  const channel = rss?.channel as XmlNode | undefined;
   if (!channel) {
     throw new Error("Invalid WXR: missing <rss><channel> root.");
   }
 
-  const authors: ParsedWxrAuthor[] = toArray(channel["wp:author"]).map((a: any) => ({
+  const authors: ParsedWxrAuthor[] = asNodes(channel["wp:author"]).map((a) => ({
     login: textOf(a["wp:author_login"]),
     email: textOf(a["wp:author_email"]),
     displayName:
       textOf(a["wp:author_display_name"]) || textOf(a["wp:author_login"]),
   }));
 
-  const categories: ParsedWxrTerm[] = toArray(channel["wp:category"]).map(
-    (c: any) => {
+  const categories: ParsedWxrTerm[] = asNodes(channel["wp:category"]).map(
+    (c) => {
       const name = textOf(c["wp:cat_name"]);
       const parent = textOf(c["wp:category_parent"]);
       return {
@@ -136,7 +147,7 @@ export function parseWxr(xml: string): ParsedWxr {
     }
   );
 
-  const tags: ParsedWxrTerm[] = toArray(channel["wp:tag"]).map((t: any) => {
+  const tags: ParsedWxrTerm[] = asNodes(channel["wp:tag"]).map((t) => {
     const name = textOf(t["wp:tag_name"]);
     return { slug: textOf(t["wp:tag_slug"]) || slugify(name), name };
   });
@@ -144,7 +155,7 @@ export function parseWxr(xml: string): ParsedWxr {
   const attachments: ParsedWxrAttachment[] = [];
 
   const items: ParsedWxrItem[] = [];
-  for (const item of toArray(channel.item) as any[]) {
+  for (const item of asNodes(channel.item)) {
     const itemType = textOf(item["wp:post_type"]) || "post";
 
     // Attachments carry the media URL; collect them separately and don't
@@ -168,15 +179,20 @@ export function parseWxr(xml: string): ParsedWxr {
 
     for (const cat of toArray(item.category)) {
       const name = textOf(cat);
-      const domain = typeof cat === "object" ? cat["@_domain"] : undefined;
-      const nicename = typeof cat === "object" ? cat["@_nicename"] : undefined;
-      const entry = { slug: String(nicename ?? slugify(name)), name };
+      const attrs =
+        cat && typeof cat === "object" ? (cat as XmlNode) : undefined;
+      const domain = attrs?.["@_domain"];
+      const nicename = attrs?.["@_nicename"];
+      const entry = {
+        slug: String(nicename ?? slugify(name)),
+        name,
+      };
       if (domain === "post_tag") itemTags.push(entry);
       else cats.push(entry);
     }
 
-    const comments: ParsedWxrComment[] = toArray(item["wp:comment"]).map(
-      (cm: any) => ({
+    const comments: ParsedWxrComment[] = asNodes(item["wp:comment"]).map(
+      (cm) => ({
         authorName: textOf(cm["wp:comment_author"]),
         authorEmail: textOf(cm["wp:comment_author_email"]),
         content: textOf(cm["wp:comment_content"]),

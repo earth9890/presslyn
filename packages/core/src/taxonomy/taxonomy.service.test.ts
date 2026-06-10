@@ -51,7 +51,7 @@ interface TermRow {
 
 function createMockDb(initialTaxonomies: TaxonomyRow[], initialTerms: TermRow[]) {
   const taxonomiesRows = initialTaxonomies.map((row) => ({ ...row }));
-  let termsRows = initialTerms.map((row) => ({ ...row }));
+  const termsRows = initialTerms.map((row) => ({ ...row }));
 
   const buildResult = <T,>(result: T[]) => {
     const chain = {

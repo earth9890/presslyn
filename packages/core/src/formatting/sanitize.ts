@@ -50,7 +50,7 @@ export function sanitizeTitle(title: string): string {
 /** Sanitize an email address. Equivalent to sanitize_email(). */
 export function sanitizeEmail(email: string): string {
   const cleaned = email.trim().toLowerCase();
-  const regex = /^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$/;
+  const regex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
   return regex.test(cleaned) ? cleaned : "";
 }
 
@@ -70,7 +70,7 @@ export function autop(text: string): string {
   if (!text.trim()) return "";
 
   // Normalize line endings
-  let output = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const output = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
   // Split on double newlines
   const paragraphs = output.split(/\n\s*\n/).filter((p) => p.trim());

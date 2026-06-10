@@ -16,7 +16,8 @@
     "dev": "tsc --watch",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@hono/node-server": "^1.19.13",
@@ -30,8 +31,10 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@presslyn/config-eslint": "workspace:*",
     "@presslyn/config-ts": "workspace:*",
     "@types/jsonwebtoken": "^9.0.10",
+    "eslint": "^9.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.0"
   }
