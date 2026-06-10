@@ -12,10 +12,12 @@ const SESSION_COOKIE = "presslyn_session";
 /** Read the current session token from the browser cookie, or null. */
 export function getSessionToken(): string | null {
   if (typeof document === "undefined") return null;
+  const prefix = `${SESSION_COOKIE}=`;
   const match = document.cookie
     .split("; ")
-    .find((cookie) => cookie.startsWith(`${SESSION_COOKIE}=`));
-  return match ? (match.split("=")[1] ?? null) : null;
+    .find((cookie) => cookie.startsWith(prefix));
+  // Slice after the first "=" so a value containing "=" isn't truncated.
+  return match ? match.slice(prefix.length) : null;
 }
 
 export class ApiError extends Error {

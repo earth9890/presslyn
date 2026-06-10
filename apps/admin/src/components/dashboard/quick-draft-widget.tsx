@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { PencilEdit02Icon, SentIcon } from "hugeicons-react";
+import { getSessionToken } from "@/lib/api-client";
 
 interface QuickDraftWidgetProps {
   siteTitle: string;
@@ -30,10 +31,7 @@ export function QuickDraftWidget({ siteTitle }: QuickDraftWidgetProps) {
       return;
     }
 
-    const token = document.cookie
-      .split("; ")
-      .find((cookie) => cookie.startsWith("presslyn_session="))
-      ?.split("=")[1];
+    const token = getSessionToken();
 
     if (!token) {
       setError("Your session expired. Sign in again and retry.");

@@ -16,6 +16,7 @@ import {
   ViewIcon,
 } from "hugeicons-react";
 import { RichTextEditor } from "./rich-text-editor";
+import { getSessionToken } from "@/lib/api-client";
 
 interface ParentOption {
   id: number;
@@ -105,6 +106,9 @@ export function ContentEditorForm({
   >("idle");
   const [autosavedAt, setAutosavedAt] = useState<string | null>(null);
   const lastPersistedSnapshot = useRef(serializeEditorState(initialValues));
+  // True while any save (manual or autosave) is mid-flight, so the two paths
+  // can never overlap and clobber each other with racing PUTs.
+  const persistInFlight = useRef(false);
 
   const collectionPath = postType === "post" ? "/posts" : "/pages";
   const previewHref =
@@ -236,11 +240,9 @@ export function ContentEditorForm({
     autosave?: boolean;
     redirectOnCreate?: boolean;
   }) {
+    persistInFlight.current = true;
     try {
-      const token = document.cookie
-        .split("; ")
-        .find((cookie) => cookie.startsWith("presslyn_session="))
-        ?.split("=")[1];
+      const token = getSessionToken();
 
       if (!token) {
         throw new Error("Your session expired. Sign in again and retry.");
@@ -327,6 +329,8 @@ export function ContentEditorForm({
         setAutosaveState("error");
       }
       throw new Error(message);
+    } finally {
+      persistInFlight.current = false;
     }
   }
 
@@ -360,7 +364,8 @@ export function ContentEditorForm({
     setAutosaveState("pending");
 
     const timeoutId = window.setTimeout(async () => {
-      if (saving) {
+      // Skip if a manual save (or a previous autosave) is still in flight.
+      if (saving || persistInFlight.current) {
         return;
       }
 
@@ -380,6 +385,21 @@ export function ContentEditorForm({
       window.clearTimeout(timeoutId);
     };
   }, [mode, postId, saving, values]);
+
+  // Warn before leaving with unsaved changes. Covers create mode (which has no
+  // autosave) and the pre-debounce window in edit mode.
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (saving) return;
+      if (serializeEditorState(values) !== lastPersistedSnapshot.current) {
+        event.preventDefault();
+        // Legacy browsers require returnValue to be set.
+        event.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [values, saving]);
 
   async function syncPostTerms(targetId: number, headers: Record<string, string>) {
     const resolvedTags = [...values.tags];
@@ -1073,9 +1093,12 @@ function serializeEditorState(state: {
   return JSON.stringify({
     ...state,
     categoryIds: [...state.categoryIds].sort((left, right) => left - right),
+    // Compare tags by name only. id/slug are assigned server-side during
+    // syncPostTerms; including them here would make the post-save state differ
+    // from the pre-save snapshot and trigger an endless "phantom" autosave.
     tags: [...state.tags]
-      .map((tag) => ({ id: tag.id ?? null, name: tag.name, slug: tag.slug ?? null }))
-      .sort((left, right) => left.name.localeCompare(right.name)),
+      .map((tag) => normalizeTagName(tag.name))
+      .sort((left, right) => left.localeCompare(right)),
   });
 }
 

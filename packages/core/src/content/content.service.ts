@@ -616,8 +616,21 @@ export class ContentService {
   }
 
   async getPostTerms(postId: number) {
+    // Select explicit term columns (no site_id) so this works on both the
+    // multisite and legacy single-site schemas — callers only need the
+    // taxonomy fields below, not the site scope.
     const rows = await this.db
-      .select({ term: terms })
+      .select({
+        term: {
+          id: terms.id,
+          taxonomyId: terms.taxonomyId,
+          name: terms.name,
+          slug: terms.slug,
+          description: terms.description,
+          parentId: terms.parentId,
+          meta: terms.meta,
+        },
+      })
       .from(postTerms)
       .innerJoin(terms, eq(postTerms.termId, terms.id))
       .where(eq(postTerms.postId, postId));

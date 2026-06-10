@@ -137,6 +137,9 @@ export class ThemeManager {
       THEME_STYLE_VARIATIONS_OPTION,
       {}
     );
-    return ThemeStyleVariationMapSchema.parse(raw);
+    // Tolerate corrupt/legacy option data: fall back to an empty map rather
+    // than throwing and taking down the whole theme listing/admin screen.
+    const result = ThemeStyleVariationMapSchema.safeParse(raw);
+    return result.success ? result.data : {};
   }
 }

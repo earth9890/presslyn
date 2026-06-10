@@ -468,13 +468,22 @@ export class TaxonomyService {
     let rows;
     let countResult;
     try {
-      rows = await this.db
-        .select()
-        .from(terms)
-        .where(and(...conditions))
-        .orderBy(orderFn(orderCol))
-        .limit(limit)
-        .offset(offset);
+      // Legacy schema has no terms.site_id; select explicit columns there so
+      // the SELECT list doesn't emit a non-existent column.
+      rows = this.legacySingleSiteMode
+        ? await this.selectLegacyTerms()
+            .from(terms)
+            .where(and(...conditions))
+            .orderBy(orderFn(orderCol))
+            .limit(limit)
+            .offset(offset)
+        : await this.db
+            .select()
+            .from(terms)
+            .where(and(...conditions))
+            .orderBy(orderFn(orderCol))
+            .limit(limit)
+            .offset(offset);
 
       [countResult] = await this.db
         .select({ count: sql<number>`count(*)::int` })

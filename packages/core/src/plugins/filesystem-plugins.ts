@@ -64,13 +64,19 @@ export function discoverFilesystemPlugins(
 ): FilesystemPlugin[] {
   if (!existsSync(pluginsDir)) return [];
 
-  return readdirSync(pluginsDir)
-    .map((entry) => path.join(pluginsDir, entry))
-    .filter((entryPath) => statSync(entryPath).isDirectory())
-    .map((directory) => ({
-      directory,
-      manifest: readPluginManifestFromDirectory(directory),
-    }));
+  const found: FilesystemPlugin[] = [];
+  for (const entry of readdirSync(pluginsDir)) {
+    const directory = path.join(pluginsDir, entry);
+    if (!statSync(directory).isDirectory()) continue;
+    try {
+      // Skip directories without a valid manifest so one bad/stray folder
+      // can't abort discovery of every other plugin.
+      found.push({ directory, manifest: readPluginManifestFromDirectory(directory) });
+    } catch (error) {
+      console.warn(`Skipping plugin directory "${directory}":`, error);
+    }
+  }
+  return found;
 }
 
 /** Resolve the entry module path for a filesystem plugin. */

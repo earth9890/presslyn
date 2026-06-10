@@ -208,6 +208,7 @@ program
       const backed = !!process.env.REDIS_URL;
       // Flush every namespace (empty prefix clears all cache keys).
       await store.flushPrefix("");
+      await store.close?.();
       if (backed) {
         console.log("Flushed the Redis object cache.");
       } else {

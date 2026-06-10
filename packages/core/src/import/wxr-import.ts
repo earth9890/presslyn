@@ -274,6 +274,49 @@ function mimeFromUrl(url: string): string | undefined {
   return ext ? map[ext] : undefined;
 }
 
+/**
+ * SSRF guard for attacker-supplied attachment URLs. Allows only http(s) to
+ * non-internal hosts, blocking loopback, private ranges, link-local, and the
+ * cloud metadata endpoint (169.254.169.254). Literal-IP/hostname based — note
+ * this does not defend against DNS rebinding, which would need resolve-time
+ * checks; it stops the common metadata/localhost/private-literal exploits.
+ */
+function isSafePublicHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!h || h === "localhost" || h.endsWith(".localhost")) return false;
+  if (h === "0.0.0.0" || h === "::" || h === "::1") return false;
+
+  const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const a = Number(v4[1]);
+    const b = Number(v4[2]);
+    if (a === 0 || a === 127) return false; // unspecified / loopback
+    if (a === 10) return false; // private
+    if (a === 172 && b >= 16 && b <= 31) return false; // private
+    if (a === 192 && b === 168) return false; // private
+    if (a === 169 && b === 254) return false; // link-local + metadata
+  }
+
+  // IPv6 loopback / link-local (fe80::/10) / unique-local (fc00::/7)
+  if (h.startsWith("fe8") || h.startsWith("fe9") || h.startsWith("fea") ||
+      h.startsWith("feb") || h.startsWith("fc") || h.startsWith("fd")) {
+    return false;
+  }
+  return true;
+}
+
+/** Whether a remote attachment URL is safe for the importer to fetch. */
+function isSafeRemoteUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  return isSafePublicHostname(url.hostname);
+}
+
 /** Filename (basename) from a URL path. */
 function filenameFromUrl(url: string): string {
   try {
@@ -340,8 +383,15 @@ export async function importWxr(
 
     for (const attachment of parsed.attachments) {
       try {
+        // SSRF guard: never fetch internal/metadata/private hosts.
+        if (!isSafeRemoteUrl(attachment.url)) continue;
+
         const res = await fetchImpl(attachment.url);
         if (!res.ok) continue;
+
+        // Reject oversized downloads up-front via Content-Length when present.
+        const declared = Number(res.headers.get("content-length") ?? "");
+        if (Number.isFinite(declared) && declared > maxBytes) continue;
 
         const buf = Buffer.from(await res.arrayBuffer());
         if (buf.length === 0 || buf.length > maxBytes) continue;
@@ -443,16 +493,22 @@ export async function importWxr(
     // Comments.
     for (const cm of item.comments) {
       if (!cm.content) continue;
-      const comment = await deps.comments.createComment({
-        postId: created.id,
-        authorName: cm.authorName || "Anonymous",
-        authorEmail: cm.authorEmail || undefined,
-        content: cm.content,
-      });
-      if (cm.approved) {
-        await deps.comments.approveComment(comment.id);
+      try {
+        const comment = await deps.comments.createComment({
+          postId: created.id,
+          authorName: cm.authorName || "Anonymous",
+          authorEmail: cm.authorEmail || undefined,
+          content: cm.content,
+        });
+        if (cm.approved) {
+          await deps.comments.approveComment(comment.id);
+        }
+        summary.comments++;
+      } catch {
+        // A single bad/blocked comment (e.g. the imported post has comments
+        // closed) must not abort the whole import — skip it and continue.
+        summary.skipped++;
       }
-      summary.comments++;
     }
   }
 

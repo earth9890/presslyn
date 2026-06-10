@@ -21,6 +21,8 @@ const ACTIVE_PLUGINS_OPTION = "active_plugins";
 export class PluginManager {
   private readonly registry = new Map<string, PluginDefinition>();
   private readonly booted = new Set<string>();
+  /** In-flight activations, keyed by id, to dedupe concurrent activate() calls. */
+  private readonly activating = new Map<string, Promise<void>>();
 
   constructor(
     private readonly options: PluginOptionStore,
@@ -71,13 +73,29 @@ export class PluginManager {
     const def = this.registry.get(id);
     if (!def) throw new NotFoundError("Plugin", id);
 
-    const ids = await this.getActiveIds();
-    if (ids.includes(id)) return;
+    // Dedupe concurrent activations of the same plugin so setup() never runs
+    // twice (which would double-register hooks).
+    const inflight = this.activating.get(id);
+    if (inflight) return inflight;
 
-    await def.setup({ hooks: this.hooks });
-    this.booted.add(id);
-    await this.setActiveIds([...ids, id]);
-    await this.hooks.doAction("activate_plugin", id);
+    const run = (async () => {
+      const ids = await this.getActiveIds();
+      const alreadyActive = ids.includes(id);
+      if (alreadyActive && this.booted.has(id)) return;
+
+      if (!this.booted.has(id)) {
+        await def.setup({ hooks: this.hooks });
+        this.booted.add(id);
+      }
+      // Persist after setup so a failed setup never leaves a "false active".
+      if (!alreadyActive) {
+        await this.setActiveIds([...ids, id]);
+      }
+      await this.hooks.doAction("activate_plugin", id);
+    })().finally(() => this.activating.delete(id));
+
+    this.activating.set(id, run);
+    return run;
   }
 
   /**

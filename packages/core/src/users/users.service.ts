@@ -181,8 +181,12 @@ export class UsersService {
     const user = await this.getUserById(id);
     await hooks.doAction("delete_user", user);
 
-    await this.db.delete(sessions).where(eq(sessions.userId, id));
-    await this.db.delete(users).where(eq(users.id, id));
+    // Delete sessions + user atomically so a mid-way failure can't leave one
+    // without the other.
+    await this.db.transaction(async (tx) => {
+      await tx.delete(sessions).where(eq(sessions.userId, id));
+      await tx.delete(users).where(eq(users.id, id));
+    });
 
     return true;
   }
