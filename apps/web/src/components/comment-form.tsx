@@ -32,12 +32,14 @@ export function CommentForm({ postId }: { postId: number }) {
         }),
       });
 
-      const data = (await response.json()) as { error?: string; message?: string };
+      const data = (await response.json().catch(() => null)) as
+        | { error?: string; message?: string }
+        | null;
       if (!response.ok) {
-        throw new Error(data.error ?? "Could not submit comment.");
+        throw new Error(data?.error ?? "Could not submit comment.");
       }
 
-      setSuccess(data.message ?? "Comment submitted.");
+      setSuccess(data?.message ?? "Comment submitted.");
       setContent("");
       setWebsite("");
     } catch (err) {

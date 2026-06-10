@@ -26,6 +26,7 @@ import {
   PostQuerySchema,
 } from "../schemas.js";
 import { escapeLike, generateSlug } from "../utils.js";
+import { sanitizeContentHtml } from "../formatting/index.js";
 import { getPostType } from "./post-types.js";
 
 // ─── Types ─────────────────────────────────────────────────
@@ -206,12 +207,14 @@ export class ContentService {
     const slug = parsed.slug || generateSlug(parsed.title);
     const uniqueSlug = await this.ensureUniqueSlug(slug, postType, siteId);
 
-    // Apply filters to content before saving
+    // Apply filters to content before saving, then sanitize LAST so neither
+    // user input nor a filter can persist unsafe HTML (stored-XSS boundary).
     const title = await hooks.applyFilters("the_title", parsed.title);
-    const content = await hooks.applyFilters(
+    const filteredContent = await hooks.applyFilters(
       "the_content",
       parsed.content ?? ""
     );
+    const content = sanitizeContentHtml(String(filteredContent));
 
     const status: PostStatus = parsed.status ?? "draft";
 
@@ -448,7 +451,8 @@ export class ContentService {
       updates.title = await hooks.applyFilters("the_title", parsed.title);
     }
     if (parsed.content !== undefined) {
-      updates.content = await hooks.applyFilters("the_content", parsed.content);
+      const filtered = await hooks.applyFilters("the_content", parsed.content);
+      updates.content = sanitizeContentHtml(String(filtered));
     }
     if (parsed.excerpt !== undefined) updates.excerpt = parsed.excerpt;
     if (parsed.status !== undefined) {

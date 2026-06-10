@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { SquareLock02Icon } from "hugeicons-react";
@@ -15,6 +15,13 @@ function ResetPasswordInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+
+  // Redirect to login shortly after a successful reset; cleaned up on unmount.
+  useEffect(() => {
+    if (!done) return;
+    const id = window.setTimeout(() => router.push("/login"), 1800);
+    return () => window.clearTimeout(id);
+  }, [done, router]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -42,7 +49,6 @@ function ResetPasswordInner() {
         return;
       }
       setDone(true);
-      setTimeout(() => router.push("/login"), 1800);
     } catch {
       setError("Unable to connect to the server. Please try again.");
     } finally {

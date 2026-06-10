@@ -92,8 +92,20 @@ export function MediaImageEditor({
     });
   }
 
-  function onPointerUp() {
+  function onPointerUp(e: PointerEvent<HTMLDivElement>) {
     dragStart.current = null;
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }
+
+  function onPointerCancel(e: PointerEvent<HTMLDivElement>) {
+    // Interrupted drag (touch cancel, context menu): reset cleanly.
+    dragStart.current = null;
+    setRect(null);
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
   }
 
   function applyCrop() {
@@ -117,27 +129,32 @@ export function MediaImageEditor({
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
-      <div
-        className="relative overflow-hidden rounded-md bg-surface-raised"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        style={{ cursor: cropping ? "crosshair" : "default", touchAction: "none" }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          ref={imgRef}
-          src={src}
-          alt={alt}
-          draggable={false}
-          className="mx-auto max-h-[60vh] w-full select-none object-contain"
-        />
-        {cropping && rect ? (
-          <div
-            className="pointer-events-none absolute border-2 border-accent bg-accent/10"
-            style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+      {/* Center the image; the inner wrapper shrink-wraps the rendered image so
+          pointer coordinates map 1:1 to it (no object-contain letterbox skew). */}
+      <div className="flex justify-center rounded-md bg-surface-raised">
+        <div
+          className="relative inline-block"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
+          style={{ cursor: cropping ? "crosshair" : "default", touchAction: "none" }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            ref={imgRef}
+            src={src}
+            alt={alt}
+            draggable={false}
+            className="block max-h-[60vh] max-w-full select-none"
           />
-        ) : null}
+          {cropping && rect ? (
+            <div
+              className="pointer-events-none absolute border-2 border-accent bg-accent/10"
+              style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+            />
+          ) : null}
+        </div>
       </div>
 
       {error ? <p className="text-xs text-danger">{error}</p> : null}

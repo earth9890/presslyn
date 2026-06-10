@@ -5,6 +5,7 @@ export {
   sanitizeTitle,
   sanitizeEmail,
   sanitizeFileName,
+  sanitizeContentHtml,
   autop,
   stripTags,
   truncateWords,
