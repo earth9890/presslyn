@@ -10,7 +10,7 @@ import { z } from "zod";
 import { LoginSchema } from "@presslyn/core";
 import type { RestEnv } from "../middleware.js";
 import { requireAuth } from "../helpers.js";
-import { signJwt } from "../jwt.js";
+import { signJwt, buildSessionCookie, buildClearSessionCookie } from "../jwt.js";
 import { handleRestError } from "../error-handler.js";
 
 const auth = new Hono<RestEnv>();
@@ -58,6 +58,11 @@ auth.post("/login", async (c) => {
 
     const token = signJwt(result.user.id);
 
+    // Set the auth token as an HttpOnly cookie so it is never exposed to JS
+    // (an XSS can't exfiltrate it). The token is still returned in the body
+    // for non-browser API clients.
+    c.header("Set-Cookie", buildSessionCookie(token));
+
     return c.json(
       {
         token,
@@ -73,16 +78,11 @@ auth.post("/login", async (c) => {
 
 /**
  * POST /auth/logout
- * Placeholder — JWT tokens are stateless.
- * The client should discard the token on its side.
+ * Clears the HttpOnly session cookie. (JWTs are otherwise stateless.)
  */
 auth.post("/logout", async (c) => {
-  try {
-    requireAuth(c);
-    return c.json({ message: "Logged out" }, 200);
-  } catch (err) {
-    return handleRestError(err, c);
-  }
+  c.header("Set-Cookie", buildClearSessionCookie());
+  return c.json({ message: "Logged out" }, 200);
 });
 
 /**

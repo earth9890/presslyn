@@ -313,12 +313,22 @@ export class UsersService {
 
   async changePassword(userId: number, newPassword: string): Promise<void> {
     const passwordHash = await hashPassword(newPassword);
+
+    // Stamp a revocation watermark so JWTs issued before now are rejected
+    // (the REST layer compares the token's `iat` against this). Merge into
+    // existing meta rather than clobbering it.
+    const current = await this.getUserById(userId);
+    const meta = {
+      ...((current.meta as Record<string, unknown>) ?? {}),
+      tokensValidAfter: Math.floor(Date.now() / 1000),
+    };
+
     await this.db
       .update(users)
-      .set({ passwordHash, updatedAt: new Date() })
+      .set({ passwordHash, meta, updatedAt: new Date() })
       .where(eq(users.id, userId));
 
-    // Invalidate all sessions for this user
+    // Invalidate all DB sessions for this user
     await this.db.delete(sessions).where(eq(sessions.userId, userId));
   }
 

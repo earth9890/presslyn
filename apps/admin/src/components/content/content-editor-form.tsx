@@ -242,16 +242,13 @@ export function ContentEditorForm({
   }) {
     persistInFlight.current = true;
     try {
-      const token = getSessionToken();
-
-      if (!token) {
-        throw new Error("Your session expired. Sign in again and retry.");
-      }
-
-      const headers = {
+      // Auth rides on the HttpOnly session cookie (sent automatically with
+      // same-origin requests); forward a legacy Bearer token only if present.
+      const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       };
+      const token = getSessionToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const payload = {
         title: values.title,

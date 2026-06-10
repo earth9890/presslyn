@@ -31,6 +31,22 @@ export function requireAuth(c: HonoContext<RestEnv>): number {
 }
 
 /**
+ * Reject a token issued before the user's most recent password change. This is
+ * how a password reset/change revokes outstanding stateless JWTs — checked
+ * wherever the user record is already loaded (no extra query).
+ */
+function assertTokenNotRevoked(
+  c: HonoContext<RestEnv>,
+  user: { meta?: Record<string, unknown> | null }
+): void {
+  const validAfter = Number((user.meta as Record<string, unknown> | null)?.tokensValidAfter);
+  const iat = c.get("tokenIat");
+  if (Number.isFinite(validAfter) && typeof iat === "number" && iat < validAfter) {
+    throw new ForbiddenError("Session expired — please sign in again");
+  }
+}
+
+/**
  * Require that the authenticated user has a specific capability.
  * Throws ForbiddenError (→ 403) if not.
  */
@@ -41,6 +57,7 @@ export async function requireCap(
   const userId = requireAuth(c);
   const services = c.get("services");
   const user = await services.users.getUserById(userId);
+  assertTokenNotRevoked(c, user);
   if (!services.users.currentUserCan(user, capability)) {
     throw new ForbiddenError(`Missing capability: ${capability}`);
   }

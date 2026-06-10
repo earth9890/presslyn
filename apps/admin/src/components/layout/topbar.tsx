@@ -25,9 +25,16 @@ export function Topbar({
   colorScheme,
   onColorSchemeChange,
 }: TopbarProps) {
-  const handleLogout = () => {
-    document.cookie =
-      "presslyn_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+  const handleLogout = async () => {
+    // The session cookie is HttpOnly, so it must be cleared server-side.
+    try {
+      await fetch("/api/v1/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+    } catch {
+      // Even if the request fails, fall through to the login redirect.
+    }
     window.location.assign("/login");
   };
 

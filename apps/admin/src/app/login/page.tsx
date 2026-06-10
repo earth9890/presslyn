@@ -23,18 +23,17 @@ export default function LoginPage() {
         body: JSON.stringify({ login: email, password }),
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
         setError(data?.error ?? "Invalid credentials. Please try again.");
         return;
       }
 
-      const data = await res.json();
-
-      // Save the session token as a cookie
-      document.cookie = `presslyn_session=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-
+      // The server sets an HttpOnly session cookie on success; nothing to
+      // store client-side. Navigate into the admin.
       router.push("/");
+      router.refresh();
     } catch {
       setError("Unable to connect to the server. Please try again.");
     } finally {
