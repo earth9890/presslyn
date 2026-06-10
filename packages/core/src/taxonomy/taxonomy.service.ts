@@ -130,8 +130,9 @@ export class TaxonomyService {
     return this.getPrimarySiteId();
   }
 
-  private selectLegacyTerms() {
-    return this.db.select({
+  /** Explicit term columns with synthetic siteId — for legacy single-site mode. */
+  private legacyTermColumns() {
+    return {
       id: terms.id,
       siteId: sql<number>`1`,
       taxonomyId: terms.taxonomyId,
@@ -140,7 +141,11 @@ export class TaxonomyService {
       description: terms.description,
       parentId: terms.parentId,
       meta: terms.meta,
-    });
+    };
+  }
+
+  private selectLegacyTerms() {
+    return this.db.select(this.legacyTermColumns());
   }
 
   private async validateParentTerm(
@@ -500,7 +505,7 @@ export class TaxonomyService {
     try {
       result = await this.db
         .select({
-          term: terms,
+          term: this.legacySingleSiteMode ? this.legacyTermColumns() : terms,
           count: sql<number>`count(${posts.id})::int`,
         })
         .from(terms)

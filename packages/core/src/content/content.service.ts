@@ -159,8 +159,13 @@ export class ContentService {
     return this.getPrimarySiteId();
   }
 
-  private selectLegacyPosts() {
-    return this.db.select({
+  /**
+   * Explicit post columns with a synthetic `siteId` of 1 — used in legacy
+   * single-site mode where the `posts.site_id` column doesn't exist. Selecting
+   * the whole `posts` object would emit `posts.site_id` and fail.
+   */
+  private legacyPostColumns() {
+    return {
       id: posts.id,
       siteId: sql<number>`1`,
       authorId: posts.authorId,
@@ -177,7 +182,11 @@ export class ContentService {
       publishedAt: posts.publishedAt,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
-    });
+    };
+  }
+
+  private selectLegacyPosts() {
+    return this.db.select(this.legacyPostColumns());
   }
 
   // ─── Create ────────────────────────────────────────────
@@ -383,11 +392,17 @@ export class ContentService {
 
     const orderFn = order === "desc" ? desc : asc;
 
+    // In legacy single-site mode the `posts.site_id` column doesn't exist, so
+    // select explicit columns rather than the whole `posts` object.
+    const postSelection = this.legacySingleSiteMode
+      ? { post: this.legacyPostColumns() }
+      : { post: posts };
+
     let rows;
     let countResult;
     try {
       rows = await this.db
-        .selectDistinct({ post: posts })
+        .selectDistinct(postSelection)
         .from(posts)
         .leftJoin(postTerms, eq(posts.id, postTerms.postId))
         .where(and(...conditions))
