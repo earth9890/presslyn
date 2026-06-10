@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./multisite-path": {
+      "types": "./dist/multisite/path.d.ts",
+      "import": "./dist/multisite/path.js"
     }
   },
   "scripts": {

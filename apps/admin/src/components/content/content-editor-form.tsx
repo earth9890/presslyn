@@ -111,7 +111,7 @@ export function ContentEditorForm({
     mode === "edit" && postId
       ? postType === "post"
         ? `/preview/posts/${postId}`
-        : `/${values.slug || initialValues.slug}`
+        : `/preview/pages/${postId}`
       : null;
   const visibilityLabel =
     values.status === "private"

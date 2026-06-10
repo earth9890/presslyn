@@ -228,6 +228,10 @@ export {
   MultisiteService,
   type CreateSiteInput,
   type UpdateSiteInput,
+  normalizeSitePath,
+  isPathUnderSite,
+  stripSitePath,
+  matchSiteBasePath,
 } from "./multisite/index.js";
 
 // Import (WXR)

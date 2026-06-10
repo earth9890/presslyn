@@ -17,6 +17,7 @@ import {
   collectWxrData,
   parseWxr,
   importWxr,
+  cacheStoreFromEnv,
 } from "@presslyn/core";
 import { services, done } from "./services.js";
 
@@ -194,6 +195,30 @@ program
       done();
     } catch (err) {
       fail(err instanceof Error ? err.message : "Import failed.");
+    }
+  });
+
+// ─── cache:flush ───────────────────────────────────────────
+program
+  .command("cache:flush")
+  .description("Flush the object cache (Redis when REDIS_URL is set)")
+  .action(async () => {
+    try {
+      const store = cacheStoreFromEnv();
+      const backed = !!process.env.REDIS_URL;
+      // Flush every namespace (empty prefix clears all cache keys).
+      await store.flushPrefix("");
+      if (backed) {
+        console.log("Flushed the Redis object cache.");
+      } else {
+        console.log(
+          "No REDIS_URL configured — the object cache is per-process " +
+            "(in-memory), so there is nothing shared to flush."
+        );
+      }
+      done();
+    } catch (err) {
+      fail(err instanceof Error ? err.message : "Could not flush cache.");
     }
   });
 
