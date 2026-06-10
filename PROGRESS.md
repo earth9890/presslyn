@@ -2,8 +2,8 @@
 
 **Started**: April 11, 2026
 **Current Phase**: Phase 4.1 + Phase 6.4 remaining
-**Tests**: 339 passing (28 test files)
-**Build**: 7 packages, zero errors
+**Tests**: 390 passing (384 core + 6 api, 35 core test files)
+**Build**: 7 packages + 3 apps, zero errors
 
 ---
 
@@ -117,6 +117,20 @@ The 5 DB services (Options, Users, Content, Taxonomy, Comments) have Zod validat
 ---
 
 ## Changelog
+
+### Jun 10, 2026 — Issue sweep + remaining phase items + legacy-query perf fix
+Single branch `feat/phase-completion-perf-fixes`. Closed the open GitHub issues and the remaining PLAN gaps, then fixed a real navigation-breaking bug.
+
+- **Search (#3/#4)**: folded in post content/excerpt search and media filename search.
+- **Users (#9/#10)**: bulk role change on the users list (single UPDATE, self-skip guard) + a dedicated `/profile` own-profile screen (self-service email/display-name + current-password-verified password change). New REST: `PUT /users/me`, `POST /users/me/password`, `POST /users/bulk-role`.
+- **Auth (#12)**: password-reset-token system — `password_reset_tokens` table (hashed PK, single-use, time-limited), `createPasswordResetToken` (no email enumeration) + `resetPasswordWithToken`, EmailService wired into the flow, `POST /auth/forgot-password` + `/reset-password`, public `/forgot-password` + `/reset-password` admin screens.
+- **Media (#6/#7/3.5)**: in-browser rotate/flip + drag-to-crop on the media detail screen (Sharp `editImage`, regenerates thumbnails); production media serving via `/uploads/[...path]` route handlers (admin + web, path-traversal-safe, `PRESSLYN_UPLOADS_DIR`); media list-view toggle + month date filter.
+- **WXR (#8)**: importer downloads attachments and re-links old→new URLs in content (opt-in `importMedia`; CLI `--media`; admin checkbox).
+- **Plugins (#11)**: filesystem discovery + dynamic import from `content/plugins/*`, wired into `createServices`.
+- **Multisite (#5)**: edge-safe path helpers + `./multisite-path` export; web middleware strips `PRESSLYN_SITE_BASE_PATHS` for subdirectory sites.
+- **Editor (3.4)**: working auth-gated `/preview/[type]/[id]` draft preview. **Settings (3.11)**: Privacy tab (privacy-policy page). **CLI (6.5)**: `presslyn cache:flush`.
+- **Perf/correctness fix**: `queryPosts` and `getTermsWithCounts` selected whole `posts`/`terms` objects, emitting `site_id`; on a fresh (legacy) schema that column doesn't exist, so the Posts/Pages list, dashboard recent-posts, and Categories/Tags screens **threw 42703** — reading as broken/hung navigation. Now select explicit columns in legacy mode; live-validated every admin read path returns in 1–18ms.
+- Validation: typecheck 11/11, test 7/7 (390 tests), build 7/7 (incl. production Next builds of admin + web).
 
 ### Jun 7, 2026 — Phase 6.4 progress: site-scoped taxonomy terms
 - Added the next multisite persistence slice in the database layer: a new `terms.site_id` relationship plus a migration that attaches existing terms to the primary site and replaces the old global slug/taxonomy uniqueness with a site-aware constraint.
