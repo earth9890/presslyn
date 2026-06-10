@@ -333,34 +333,61 @@ export class MediaService {
     const filepath = `${year}/${month}/${uniqueName}`;
 
     // ── Save original file ───────────────────────────────
-    const url = await this.storage.save(filepath, parsed.buffer);
-
     // ── Image processing ─────────────────────────────────
     let width: number | null = null;
     let height: number | null = null;
     const thumbnails: Record<string, { filepath: string; url: string }> = {};
+    // The buffer actually persisted as the "original". For raster images we
+    // re-encode to strip EXIF/GPS (Sharp drops metadata by default) so the
+    // served full-size image can't leak the uploader's location/device.
+    let storedBuffer = parsed.buffer;
+    const isRasterImage = IMAGE_MIME_TYPES.has(parsed.mimeType);
 
-    if (IMAGE_MIME_TYPES.has(parsed.mimeType)) {
+    if (isRasterImage) {
       const metadata = await sharp(parsed.buffer).metadata();
-      width = metadata.width ?? null;
-      height = metadata.height ?? null;
+      const sourceWidth = metadata.width ?? 0;
+      const sourceHeight = metadata.height ?? 0;
 
-      // ── Decompression bomb check ─────────────────────
-      if (width && height && width * height > MAX_IMAGE_PIXELS) {
-        // Clean up the already-saved file
-        await this.storage.delete(filepath);
+      // ── Decompression bomb check (before persisting/re-encoding) ──
+      if (
+        sourceWidth &&
+        sourceHeight &&
+        sourceWidth * sourceHeight > MAX_IMAGE_PIXELS
+      ) {
         throw new ValidationError(
-          `Image dimensions ${width}x${height} exceed maximum of ${MAX_IMAGE_PIXELS} pixels`
+          `Image dimensions ${sourceWidth}x${sourceHeight} exceed maximum of ${MAX_IMAGE_PIXELS} pixels`
         );
       }
 
+      width = sourceWidth || null;
+      height = sourceHeight || null;
+
+      // Re-encode decodable raster images to strip metadata. Skip GIF (avoids
+      // flattening animation) and degenerate/undecodable inputs. `.rotate()`
+      // bakes in EXIF orientation before the metadata is dropped.
+      if (parsed.mimeType !== "image/gif" && sourceWidth && sourceHeight) {
+        try {
+          storedBuffer = await sharp(parsed.buffer).rotate().toBuffer();
+          const cleaned = await sharp(storedBuffer).metadata();
+          width = cleaned.width ?? width;
+          height = cleaned.height ?? height;
+        } catch {
+          // Undecodable image: keep the original bytes rather than fail upload.
+          storedBuffer = parsed.buffer;
+        }
+      }
+    }
+
+    const url = await this.storage.save(filepath, storedBuffer);
+
+    if (isRasterImage) {
       // ── Generate thumbnails (parallel) ───────────────
       if (width && height) {
         const sizes = getAllImageSizes();
         const thumbResults = await Promise.allSettled(
           sizes.map(async (size) => {
             const thumbBuffer = await this.resizeImage(
-              parsed.buffer,
+              storedBuffer,
               size,
               width!,
               height!
@@ -392,7 +419,7 @@ export class MediaService {
       uploaderId: parsed.uploaderId,
       filename: uniqueName,
       mimeType: parsed.mimeType,
-      fileSize: parsed.buffer.length,
+      fileSize: storedBuffer.length,
       url,
       alt: parsed.alt ?? "",
       title: parsed.title ?? safeBase,
@@ -411,7 +438,7 @@ export class MediaService {
                 uploaderId: parsed.uploaderId,
                 filename: uniqueName,
                 mimeType: parsed.mimeType,
-                fileSize: parsed.buffer.length,
+                fileSize: storedBuffer.length,
                 url,
                 alt: parsed.alt ?? "",
                 title: parsed.title ?? safeBase,
