@@ -96,10 +96,22 @@ export async function renderThemeTemplatePart(
   return renderThemeTemplate(theme, part, context);
 }
 
+/** Escape a substituted value — the surrounding template HTML is theme-authored
+ *  (trusted) but `{{...}}` values are user data (post title, term name, site
+ *  title) and are emitted into dangerouslySetInnerHTML downstream. */
+function escapeTemplateValue(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function interpolateTemplateString(value: string, context: TemplateContext): string {
   return value.replace(/\{\{\s*([a-zA-Z0-9]+)\s*\}\}/g, (_, key: string) => {
     const resolved = context[key as keyof TemplateContext];
-    return typeof resolved === "string" ? resolved : "";
+    return typeof resolved === "string" ? escapeTemplateValue(resolved) : "";
   });
 }
 

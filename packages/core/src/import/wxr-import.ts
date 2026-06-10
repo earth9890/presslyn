@@ -230,13 +230,43 @@ export interface ImportDeps {
 
 /** Minimal fetch signature so tests can inject a stub downloader. */
 export type FetchLike = (
-  url: string
+  url: string,
+  init?: { redirect?: "manual" | "follow" | "error" }
 ) => Promise<{
   ok: boolean;
   status: number;
   headers: { get(name: string): string | null };
   arrayBuffer(): Promise<ArrayBuffer>;
 }>;
+
+/**
+ * Fetch a URL with manual redirect handling, re-running the SSRF guard on every
+ * hop so an attacker can't 30x-redirect from a public host into an internal
+ * one. Returns the final OK response, or null if blocked/failed/too many hops.
+ */
+async function safeFetch(
+  rawUrl: string,
+  fetchImpl: FetchLike,
+  maxRedirects = 3
+): Promise<Awaited<ReturnType<FetchLike>> | null> {
+  let url = rawUrl;
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    if (!isSafeRemoteUrl(url)) return null;
+    const res = await fetchImpl(url, { redirect: "manual" });
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (!location) return null;
+      try {
+        url = new URL(location, url).toString();
+      } catch {
+        return null;
+      }
+      continue;
+    }
+    return res.ok ? res : null;
+  }
+  return null; // too many redirects
+}
 
 export interface ImportOptions {
   /** Author used when an item's author cannot be matched to a user. */
@@ -383,11 +413,9 @@ export async function importWxr(
 
     for (const attachment of parsed.attachments) {
       try {
-        // SSRF guard: never fetch internal/metadata/private hosts.
-        if (!isSafeRemoteUrl(attachment.url)) continue;
-
-        const res = await fetchImpl(attachment.url);
-        if (!res.ok) continue;
+        // SSRF guard: validates the URL and every redirect hop.
+        const res = await safeFetch(attachment.url, fetchImpl);
+        if (!res) continue;
 
         // Reject oversized downloads up-front via Content-Length when present.
         const declared = Number(res.headers.get("content-length") ?? "");

@@ -47,6 +47,19 @@ function assertTokenNotRevoked(
 }
 
 /**
+ * Require authentication AND that the token hasn't been revoked by a password
+ * change. Use on auth-only mutation routes (no capability) so they honor
+ * `tokensValidAfter` like the capability-gated paths do.
+ */
+export async function requireFreshAuth(c: HonoContext<RestEnv>): Promise<number> {
+  const userId = requireAuth(c);
+  const services = c.get("services");
+  const user = await services.users.getUserById(userId);
+  assertTokenNotRevoked(c, user);
+  return userId;
+}
+
+/**
  * Require that the authenticated user has a specific capability.
  * Throws ForbiddenError (→ 403) if not.
  */

@@ -38,7 +38,22 @@ export function createRestApp(services: Services) {
   app.onError((err, c) => handleRestError(err, c));
 
   // ─── CORS middleware ──────────────────────────────────────
-  app.use("/api/v1/*", cors());
+  // Restrict to an explicit allowlist (CORS_ORIGINS, comma-separated) when
+  // configured; otherwise fall back to permissive (dev). Credentials are never
+  // enabled — auth rides on a SameSite cookie / Bearer token, not CORS.
+  const allowedOrigins = (process.env.CORS_ORIGINS ?? "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+  app.use(
+    "/api/v1/*",
+    allowedOrigins.length > 0
+      ? cors({
+          origin: (origin) =>
+            allowedOrigins.includes(origin) ? origin : null,
+        })
+      : cors()
+  );
 
   // ─── Auth middleware (extracts JWT, sets userId + services) ─
   app.use("/api/v1/*", authMiddleware(services));

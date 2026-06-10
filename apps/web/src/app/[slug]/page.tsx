@@ -149,7 +149,7 @@ export default async function EntryPage({
     >
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
 
       {templateContent ?? (
@@ -253,4 +253,18 @@ export default async function EntryPage({
   ) : (
     article
   );
+}
+
+/**
+ * Serialize a JSON-LD object for safe injection into a <script> tag. Escapes
+ * the characters that could break out of the element or be mis-parsed
+ * (`<`, `>`, `&`, and the JS line separators U+2028/U+2029).
+ */
+function safeJsonLd(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
 }

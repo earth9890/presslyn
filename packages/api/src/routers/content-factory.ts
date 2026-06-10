@@ -112,6 +112,14 @@ export function createContentRouter(postType: "post" | "page") {
           ctx.services.content.getPostById(input.id)
         );
 
+        // This router only serves its own post type.
+        if (post.postType !== postType) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `${postType === "page" ? "Page" : "Post"} not found`,
+          });
+        }
+
         // Visibility filtering
         if (post.status === "publish") {
           return post;
@@ -235,6 +243,14 @@ export function createContentRouter(postType: "post" | "page") {
         const existing = await handleServiceCall(() =>
           ctx.services.content.getPostById(input.id)
         );
+        // Guard against cross-type access: the pages router must not touch
+        // posts (and vice-versa), since the two have separate capabilities.
+        if (existing.postType !== postType) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `${postType === "page" ? "Page" : "Post"} not found`,
+          });
+        }
         if (existing.authorId !== ctx.userId) {
           await requireCapability(ctx, caps.editOthers);
         }
@@ -258,6 +274,14 @@ export function createContentRouter(postType: "post" | "page") {
         const existing = await handleServiceCall(() =>
           ctx.services.content.getPostById(input.id)
         );
+        // Guard against cross-type access: the pages router must not touch
+        // posts (and vice-versa), since the two have separate capabilities.
+        if (existing.postType !== postType) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `${postType === "page" ? "Page" : "Post"} not found`,
+          });
+        }
         if (existing.authorId !== ctx.userId) {
           await requireCapability(ctx, caps.deleteOthers);
         }
@@ -280,6 +304,14 @@ export function createContentRouter(postType: "post" | "page") {
         const existing = await handleServiceCall(() =>
           ctx.services.content.getPostById(input.id)
         );
+        // Guard against cross-type access: the pages router must not touch
+        // posts (and vice-versa), since the two have separate capabilities.
+        if (existing.postType !== postType) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `${postType === "page" ? "Page" : "Post"} not found`,
+          });
+        }
         if (existing.authorId !== ctx.userId) {
           await requireCapability(ctx, caps.deleteOthers);
         }
@@ -303,6 +335,14 @@ export function createContentRouter(postType: "post" | "page") {
         const existing = await handleServiceCall(() =>
           ctx.services.content.getPostById(input.id)
         );
+        // Guard against cross-type access: the pages router must not touch
+        // posts (and vice-versa), since the two have separate capabilities.
+        if (existing.postType !== postType) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `${postType === "page" ? "Page" : "Post"} not found`,
+          });
+        }
         if (existing.authorId !== ctx.userId) {
           await requireCapability(ctx, caps.deleteOthers);
         }

@@ -19,7 +19,8 @@ import {
   ForbiddenError,
 } from "@presslyn/core";
 import type { RestEnv } from "../middleware.js";
-import { parseId, requireAuth, requireCap } from "../helpers.js";
+import { parseId, requireAuth, requireFreshAuth, requireCap } from "../helpers.js";
+import { signJwt, buildSessionCookie } from "../jwt.js";
 import { handleRestError } from "../error-handler.js";
 
 const users = new Hono<RestEnv>();
@@ -91,7 +92,7 @@ users.get("/", async (c) => {
  */
 users.put("/me", async (c) => {
   try {
-    const userId = requireAuth(c);
+    const userId = await requireFreshAuth(c);
     const services = c.get("services");
     const body = await c.req.json();
 
@@ -110,12 +111,16 @@ users.put("/me", async (c) => {
  */
 users.post("/me/password", async (c) => {
   try {
-    const userId = requireAuth(c);
+    const userId = await requireFreshAuth(c);
     const services = c.get("services");
     const body = await c.req.json();
 
     const { currentPassword, newPassword } = ChangeOwnPasswordSchema.parse(body);
     await services.users.changeOwnPassword(userId, currentPassword, newPassword);
+    // changeOwnPassword bumps tokensValidAfter, which would revoke the caller's
+    // own (now-stale) token. Re-issue a fresh cookie so the user who just
+    // changed their password stays signed in (other sessions are invalidated).
+    c.header("Set-Cookie", buildSessionCookie(signJwt(userId)));
     return c.json({ message: "Password updated" }, 200);
   } catch (err) {
     return handleRestError(err, c);

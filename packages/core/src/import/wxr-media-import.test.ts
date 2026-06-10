@@ -92,7 +92,7 @@ describe("importWxr media re-download + re-link", () => {
     });
 
     expect(summary.media).toBe(1);
-    expect(fetchStub).toHaveBeenCalledWith(OLD_URL);
+    expect(fetchStub).toHaveBeenCalledWith(OLD_URL, { redirect: "manual" });
     expect(created[0]?.content).toContain("/uploads/2026/06/cat-abcd1234.jpg");
     expect(created[0]?.content).not.toContain(OLD_URL);
   });
@@ -105,5 +105,70 @@ describe("importWxr media re-download + re-link", () => {
 
     expect(summary.media).toBe(0);
     expect(created[0]?.content).toContain(OLD_URL);
+  });
+
+  it("blocks SSRF to internal/metadata hosts (never fetches them)", async () => {
+    const { deps } = makeDeps();
+    const parsed = {
+      authors: [],
+      categories: [],
+      tags: [],
+      items: [],
+      attachments: [
+        { url: "http://169.254.169.254/latest/meta-data/", title: "", slug: "a" },
+        { url: "http://localhost:5432/", title: "", slug: "b" },
+        { url: "http://10.0.0.5/secret", title: "", slug: "c" },
+        { url: "file:///etc/passwd", title: "", slug: "d" },
+      ],
+    };
+    const fetchStub: FetchLike = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      arrayBuffer: async () => new Uint8Array([1]).buffer,
+    }));
+
+    const summary = await importWxr(parsed, deps, {
+      defaultAuthorId: 1,
+      importMedia: true,
+      fetch: fetchStub,
+    });
+
+    expect(summary.media).toBe(0);
+    expect(fetchStub).not.toHaveBeenCalled();
+  });
+
+  it("blocks a redirect from a public host into a private one", async () => {
+    const { deps } = makeDeps();
+    const parsed = {
+      authors: [],
+      categories: [],
+      tags: [],
+      items: [],
+      attachments: [
+        { url: "https://public.example.com/img.jpg", title: "", slug: "a" },
+      ],
+    };
+    // First (public) hop 302-redirects to the metadata endpoint.
+    const fetchStub: FetchLike = vi.fn(async (url: string) => {
+      if (url === "https://public.example.com/img.jpg") {
+        return {
+          ok: false,
+          status: 302,
+          headers: { get: (n: string) => (n.toLowerCase() === "location" ? "http://169.254.169.254/" : null) },
+          arrayBuffer: async () => new ArrayBuffer(0),
+        };
+      }
+      throw new Error("should not fetch the private redirect target");
+    });
+
+    const summary = await importWxr(parsed, deps, {
+      defaultAuthorId: 1,
+      importMedia: true,
+      fetch: fetchStub,
+    });
+
+    expect(summary.media).toBe(0);
+    expect(fetchStub).toHaveBeenCalledTimes(1); // only the first hop
   });
 });
