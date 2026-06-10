@@ -169,6 +169,7 @@ program
     "default author id for unmatched authors",
     "1"
   )
+  .option("-m, --media", "download and re-link attachment media", false)
   .action(async (file: string, opts) => {
     try {
       const xml = await readFile(file, "utf-8");
@@ -180,13 +181,15 @@ program
           taxonomy: services.taxonomy,
           comments: services.comments,
           users: services.users,
+          media: services.media,
         },
-        { defaultAuthorId: Number(opts.author) || 1 }
+        { defaultAuthorId: Number(opts.author) || 1, importMedia: !!opts.media }
       );
       console.log(
         `Imported ${summary.posts} posts, ${summary.pages} pages, ` +
-          `${summary.comments} comments (${summary.categories} categories, ` +
-          `${summary.tags} tags; ${summary.skipped} skipped).`
+          `${summary.comments} comments, ${summary.media} media ` +
+          `(${summary.categories} categories, ${summary.tags} tags; ` +
+          `${summary.skipped} skipped).`
       );
       done();
     } catch (err) {

@@ -13,6 +13,7 @@ import type { ContentService } from "../content/index.js";
 import type { TaxonomyService } from "../taxonomy/index.js";
 import type { CommentsService } from "../comments/index.js";
 import type { UsersService } from "../users/index.js";
+import type { MediaService } from "../media/index.js";
 
 export interface ParsedWxrAuthor {
   login: string;
@@ -47,11 +48,19 @@ export interface ParsedWxrItem {
   comments: ParsedWxrComment[];
 }
 
+export interface ParsedWxrAttachment {
+  /** Source URL of the original file (wp:attachment_url, falling back to guid). */
+  url: string;
+  title: string;
+  slug: string;
+}
+
 export interface ParsedWxr {
   authors: ParsedWxrAuthor[];
   categories: ParsedWxrTerm[];
   tags: ParsedWxrTerm[];
   items: ParsedWxrItem[];
+  attachments: ParsedWxrAttachment[];
 }
 
 export interface ImportSummary {
@@ -60,6 +69,7 @@ export interface ImportSummary {
   categories: number;
   tags: number;
   comments: number;
+  media: number;
   skipped: number;
 }
 
@@ -131,7 +141,28 @@ export function parseWxr(xml: string): ParsedWxr {
     return { slug: textOf(t["wp:tag_slug"]) || slugify(name), name };
   });
 
-  const items: ParsedWxrItem[] = toArray(channel.item).map((item: any) => {
+  const attachments: ParsedWxrAttachment[] = [];
+
+  const items: ParsedWxrItem[] = [];
+  for (const item of toArray(channel.item) as any[]) {
+    const itemType = textOf(item["wp:post_type"]) || "post";
+
+    // Attachments carry the media URL; collect them separately and don't
+    // treat them as content items.
+    if (itemType === "attachment") {
+      const url =
+        textOf(item["wp:attachment_url"]) || textOf(item.guid) || "";
+      if (url) {
+        const title = textOf(item.title);
+        attachments.push({
+          url,
+          title,
+          slug: textOf(item["wp:post_name"]) || slugify(title),
+        });
+      }
+      continue;
+    }
+
     const cats: { slug: string; name: string }[] = [];
     const itemTags: { slug: string; name: string }[] = [];
 
@@ -154,22 +185,22 @@ export function parseWxr(xml: string): ParsedWxr {
     );
 
     const title = textOf(item.title);
-    return {
+    items.push({
       title,
       slug: textOf(item["wp:post_name"]) || slugify(title),
       content: textOf(item["content:encoded"]),
       excerpt: textOf(item["excerpt:encoded"]),
       status: textOf(item["wp:status"]) || "draft",
-      type: textOf(item["wp:post_type"]) || "post",
+      type: itemType,
       authorLogin: textOf(item["dc:creator"]),
       commentStatus: textOf(item["wp:comment_status"]) || "open",
       categories: cats,
       tags: itemTags,
       comments,
-    };
-  });
+    });
+  }
 
-  return { authors, categories, tags, items };
+  return { authors, categories, tags, items, attachments };
 }
 
 export interface ImportDeps {
@@ -177,11 +208,90 @@ export interface ImportDeps {
   taxonomy: TaxonomyService;
   comments: CommentsService;
   users: UsersService;
+  /** Required only when {@link ImportOptions.importMedia} is enabled. */
+  media?: MediaService;
 }
+
+/** Minimal fetch signature so tests can inject a stub downloader. */
+export type FetchLike = (
+  url: string
+) => Promise<{
+  ok: boolean;
+  status: number;
+  headers: { get(name: string): string | null };
+  arrayBuffer(): Promise<ArrayBuffer>;
+}>;
 
 export interface ImportOptions {
   /** Author used when an item's author cannot be matched to a user. */
   defaultAuthorId: number;
+  /**
+   * Download attachment files referenced by the WXR and re-link their URLs in
+   * imported content. Requires `deps.media`. Off by default.
+   */
+  importMedia?: boolean;
+  /** Fetch implementation for downloads (defaults to global fetch). */
+  fetch?: FetchLike;
+  /** Per-file download cap in bytes (default 25MB). */
+  maxMediaBytes?: number;
+}
+
+const DEFAULT_MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+
+/** Guess a MIME type from a URL's file extension. */
+function mimeFromUrl(url: string): string | undefined {
+  const ext = url.split(/[?#]/)[0]!.split(".").pop()?.toLowerCase();
+  const map: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    avif: "image/avif",
+    pdf: "application/pdf",
+    mp3: "audio/mpeg",
+    ogg: "audio/ogg",
+    wav: "audio/wav",
+    mp4: "video/mp4",
+    webm: "video/webm",
+  };
+  return ext ? map[ext] : undefined;
+}
+
+/** Filename (basename) from a URL path. */
+function filenameFromUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const base = u.pathname.split("/").filter(Boolean).pop();
+    return base || "upload";
+  } catch {
+    const base = url.split(/[?#]/)[0]!.split("/").filter(Boolean).pop();
+    return base || "upload";
+  }
+}
+
+/**
+ * Escape a string for safe use inside a RegExp.
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Replace every old attachment URL in `text` with its imported counterpart.
+ * Longest URLs are replaced first so a URL that is a prefix of another doesn't
+ * partially rewrite it.
+ */
+function relinkUrls(text: string, urlMap: Map<string, string>): string {
+  if (!text || urlMap.size === 0) return text;
+  let result = text;
+  const entries = [...urlMap.entries()].sort(
+    (a, b) => b[0].length - a[0].length
+  );
+  for (const [oldUrl, newUrl] of entries) {
+    result = result.replace(new RegExp(escapeRegExp(oldUrl), "g"), newUrl);
+  }
+  return result;
 }
 
 /**
@@ -200,8 +310,46 @@ export async function importWxr(
     categories: 0,
     tags: 0,
     comments: 0,
+    media: 0,
     skipped: 0,
   };
+
+  // 0. Media — download attachments and build an old-URL → new-URL map used
+  //    to re-link references inside imported content.
+  const urlMap = new Map<string, string>();
+  if (options.importMedia && deps.media && parsed.attachments.length > 0) {
+    const fetchImpl: FetchLike =
+      options.fetch ?? (globalThis.fetch as unknown as FetchLike);
+    const maxBytes = options.maxMediaBytes ?? DEFAULT_MAX_MEDIA_BYTES;
+
+    for (const attachment of parsed.attachments) {
+      try {
+        const res = await fetchImpl(attachment.url);
+        if (!res.ok) continue;
+
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length === 0 || buf.length > maxBytes) continue;
+
+        const mimeType =
+          res.headers.get("content-type")?.split(";")[0]?.trim() ||
+          mimeFromUrl(attachment.url) ||
+          "application/octet-stream";
+
+        const record = await deps.media.upload({
+          uploaderId: options.defaultAuthorId,
+          filename: filenameFromUrl(attachment.url),
+          mimeType,
+          buffer: buf,
+          title: attachment.title || undefined,
+        });
+
+        urlMap.set(attachment.url, record.url);
+        summary.media++;
+      } catch {
+        /* unreachable URL, invalid file, etc. — skip this attachment */
+      }
+    }
+  }
 
   // 1. Terms — ensure every category/tag exists; build name->id maps.
   const categoryIdByName = new Map<string, number>();
@@ -252,8 +400,8 @@ export async function importWxr(
       authorId,
       postType: item.type,
       title: item.title,
-      content: item.content,
-      excerpt: item.excerpt,
+      content: relinkUrls(item.content, urlMap),
+      excerpt: relinkUrls(item.excerpt, urlMap),
       status: status as "draft" | "publish" | "pending" | "private",
       slug: item.slug,
       commentStatus: item.commentStatus === "closed" ? "closed" : "open",

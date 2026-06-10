@@ -23,6 +23,7 @@ import {
   transportFromEnv,
   discoverFilesystemThemes,
   resolveThemesDirectory,
+  registerFilesystemPlugins,
   type StorageAdapter,
 } from "@presslyn/core";
 import { registerBundledPlugins } from "./plugins/bundled.js";
@@ -53,9 +54,13 @@ export function createServices(db: Database, storage: StorageAdapter): Services 
   const options = new OptionsService(db);
   const plugins = new PluginManager(options);
   registerBundledPlugins(plugins);
-  // Boot already-active plugins so their hooks take effect in this process.
-  void plugins.bootActivePlugins().catch((err) => {
-    console.error("Failed to boot active plugins:", err);
+  // Register filesystem plugins (dynamic import) then boot already-active
+  // plugins so their hooks take effect in this process.
+  void (async () => {
+    await registerFilesystemPlugins(plugins);
+    await plugins.bootActivePlugins();
+  })().catch((err) => {
+    console.error("Failed to register/boot plugins:", err);
   });
 
   const themes = new ThemeManager(options);

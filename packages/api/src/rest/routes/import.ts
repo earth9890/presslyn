@@ -42,6 +42,10 @@ importApp.post("/", async (c) => {
       );
     }
 
+    const importMediaField = formData.get("importMedia");
+    const importMedia =
+      importMediaField === "true" || importMediaField === "1";
+
     const summary = await importWxr(
       parsed,
       {
@@ -49,8 +53,9 @@ importApp.post("/", async (c) => {
         taxonomy: services.taxonomy,
         comments: services.comments,
         users: services.users,
+        media: services.media,
       },
-      { defaultAuthorId: userId }
+      { defaultAuthorId: userId, importMedia }
     );
 
     return c.json({ summary }, 200);

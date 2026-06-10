@@ -16,6 +16,8 @@ export const PluginManifestSchema = z
     version: z.string().min(1).max(50),
     description: z.string().max(2000).optional(),
     author: z.string().max(200).optional(),
+    /** Entry module (relative to the plugin dir) for filesystem plugins. */
+    main: z.string().max(200).optional(),
   })
   .strict();
 
