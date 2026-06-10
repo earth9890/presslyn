@@ -626,7 +626,7 @@ function FragmentRow({
               )}
             </Link>
             <div className="text-xs text-text-muted">/{row.slug}</div>
-            <div className="flex flex-wrap items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex flex-wrap items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               <Link
                 href={`${basePath}/${row.id}/edit`}
                 className="text-xs text-accent hover:underline"

@@ -75,7 +75,18 @@ export function CommentForm({ postId }: { postId: number }) {
         </label>
       </div>
 
-      <label className="hidden" aria-hidden="true">
+      {/* Honeypot: positioned off-screen rather than display:none so naive
+          bots that skip hidden fields still fill it. Real users never see it. */}
+      <label
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          width: "1px",
+          height: "1px",
+          overflow: "hidden",
+        }}
+      >
         Website
         <input
           tabIndex={-1}

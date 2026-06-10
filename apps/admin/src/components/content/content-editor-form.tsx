@@ -846,6 +846,8 @@ export function ContentEditorForm({
                   <button
                     key={item.id}
                     type="button"
+                    aria-pressed={isSelected}
+                    aria-label={`Set featured image: ${item.title || item.filename}`}
                     onClick={() => updateFeaturedMedia(item.id)}
                     className={`overflow-hidden rounded-[1rem] border text-left transition-colors ${
                       isSelected

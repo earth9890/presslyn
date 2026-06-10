@@ -352,7 +352,7 @@ export function TaxonomyManager({
                             {term.depth > 0 ? "— " : ""}
                             {term.name}
                           </p>
-                          <div className="mt-1 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                          <div className="mt-1 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                             <button
                               onClick={() => startEdit(term)}
                               className="flex items-center gap-1 text-xs text-accent hover:underline"
