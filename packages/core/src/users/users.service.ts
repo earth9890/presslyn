@@ -7,7 +7,7 @@
 
 import { eq, and, like, sql, desc, asc, inArray } from "drizzle-orm";
 import { type Database } from "@presslyn/database";
-import { users, sessions } from "@presslyn/database";
+import { users, sessions, passwordResetTokens } from "@presslyn/database";
 import { hooks } from "../hooks.js";
 import { NotFoundError, UnauthorizedError, ValidationError } from "../errors.js";
 import { CreateUserSchema, UpdateUserSchema, UserListSchema, LoginSchema } from "../schemas.js";
@@ -18,6 +18,9 @@ import {
   generateSessionToken,
   hashSessionToken,
   getSessionExpiry,
+  generateResetToken,
+  hashResetToken,
+  getResetTokenExpiry,
 } from "./auth.js";
 import { userCan, getRole } from "./roles.js";
 
@@ -364,6 +367,87 @@ export class UsersService {
       await hooks.doAction("set_user_role", row.id, role);
     }
     return updated.length;
+  }
+
+  // ─── Password Reset Tokens ───────────────────────────────
+
+  /**
+   * Issue a single-use, time-limited password-reset token for the account
+   * matching `email`. Returns the raw token + the user (for the email layer)
+   * when the account exists, or `null` when it does not — callers MUST treat
+   * both cases identically to avoid leaking which emails are registered.
+   *
+   * Any outstanding tokens for the user are invalidated first so only the
+   * most recent link works.
+   */
+  async createPasswordResetToken(email: string): Promise<{
+    token: string;
+    user: Omit<typeof users.$inferSelect, "passwordHash">;
+    expiresAt: Date;
+  } | null> {
+    const normalized = String(email ?? "").trim().toLowerCase();
+    if (!normalized) return null;
+
+    const [userRow] = await this.db
+      .select(userColumns)
+      .from(users)
+      .where(eq(users.email, normalized))
+      .limit(1);
+
+    if (!userRow) return null;
+
+    // Invalidate any previous tokens for this user.
+    await this.db
+      .delete(passwordResetTokens)
+      .where(eq(passwordResetTokens.userId, userRow.id));
+
+    const token = generateResetToken();
+    const expiresAt = getResetTokenExpiry();
+
+    await this.db.insert(passwordResetTokens).values({
+      id: hashResetToken(token),
+      userId: userRow.id,
+      expiresAt,
+    });
+
+    await hooks.doAction("password_reset_requested", userRow);
+    return { token, user: userRow, expiresAt };
+  }
+
+  /**
+   * Consume a password-reset token and set a new password. Validates that the
+   * token exists, is unexpired, and is unused. Marks the token used, sets the
+   * new password, and (via changePassword) invalidates all existing sessions.
+   * Throws UnauthorizedError for any invalid/expired/used token.
+   */
+  async resetPasswordWithToken(
+    token: string,
+    newPassword: string
+  ): Promise<void> {
+    if (typeof newPassword !== "string" || newPassword.length < 8) {
+      throw new ValidationError("Password must be at least 8 characters");
+    }
+
+    const hashed = hashResetToken(String(token ?? ""));
+    const [record] = await this.db
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.id, hashed))
+      .limit(1);
+
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      throw new UnauthorizedError("Invalid or expired reset token");
+    }
+
+    // Mark used before mutating the password so a crash can't leave a
+    // re-usable token behind.
+    await this.db
+      .update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokens.id, hashed));
+
+    await this.changePassword(record.userId, newPassword);
+    await hooks.doAction("password_reset_completed", record.userId);
   }
 
   // ─── Session Cleanup ─────────────────────────────────────

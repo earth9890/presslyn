@@ -68,3 +68,27 @@ export function getSessionExpiry(daysFromNow: number = 14): Date {
   expiry.setDate(expiry.getDate() + daysFromNow);
   return expiry;
 }
+
+/**
+ * Generate a password-reset token. Same entropy as a session token; the raw
+ * value is emailed to the user and only its SHA-256 hash is stored.
+ */
+export function generateResetToken(): string {
+  return randomBytes(48).toString("hex");
+}
+
+/** Hash a reset token for storage (SHA-256), mirroring session tokens. */
+export function hashResetToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * Generate a password-reset token expiry date.
+ * @param minutesFromNow Must be positive. Default: 60 minutes.
+ */
+export function getResetTokenExpiry(minutesFromNow: number = 60): Date {
+  if (minutesFromNow <= 0) {
+    throw new Error("Reset token expiry must be a positive number of minutes");
+  }
+  return new Date(Date.now() + minutesFromNow * 60_000);
+}

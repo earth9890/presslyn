@@ -19,6 +19,8 @@ import {
   BlockRegistry,
   ThemeManager,
   MultisiteService,
+  EmailService,
+  transportFromEnv,
   discoverFilesystemThemes,
   resolveThemesDirectory,
   type StorageAdapter,
@@ -39,6 +41,7 @@ export interface Services {
   blocks: BlockRegistry;
   themes: ThemeManager;
   multisite: MultisiteService;
+  email: EmailService;
 }
 
 /**
@@ -69,6 +72,12 @@ export function createServices(db: Database, storage: StorageAdapter): Services 
   }
   const blocks = new BlockRegistry();
 
+  const email = new EmailService(transportFromEnv(), {
+    fromAddress:
+      process.env.EMAIL_FROM ?? "Presslyn <no-reply@presslyn.local>",
+    siteName: process.env.SITE_NAME ?? "Presslyn",
+  });
+
   return {
     content: new ContentService(db),
     users: new UsersService(db),
@@ -80,6 +89,7 @@ export function createServices(db: Database, storage: StorageAdapter): Services 
     blocks,
     themes,
     multisite: new MultisiteService(db),
+    email,
   };
 }
 

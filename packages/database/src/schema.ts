@@ -269,3 +269,24 @@ export const sessions = pgTable(
     index("sessions_expires_idx").on(table.expiresAt),
   ]
 );
+
+// ─── Password Reset Tokens ───────────────────────────────────
+// The primary key is the SHA-256 hash of the raw token (never store the raw
+// token, like sessions). Single-use (usedAt) and time-limited (expiresAt).
+
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: varchar("id", { length: 255 }).primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("password_reset_user_idx").on(table.userId),
+    index("password_reset_expires_idx").on(table.expiresAt),
+  ]
+);
