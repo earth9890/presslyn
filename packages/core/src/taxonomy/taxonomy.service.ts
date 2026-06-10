@@ -130,8 +130,9 @@ export class TaxonomyService {
     return this.getPrimarySiteId();
   }
 
-  private selectLegacyTerms() {
-    return this.db.select({
+  /** Explicit term columns with synthetic siteId — for legacy single-site mode. */
+  private legacyTermColumns() {
+    return {
       id: terms.id,
       siteId: sql<number>`1`,
       taxonomyId: terms.taxonomyId,
@@ -140,7 +141,11 @@ export class TaxonomyService {
       description: terms.description,
       parentId: terms.parentId,
       meta: terms.meta,
-    });
+    };
+  }
+
+  private selectLegacyTerms() {
+    return this.db.select(this.legacyTermColumns());
   }
 
   private async validateParentTerm(
@@ -463,13 +468,22 @@ export class TaxonomyService {
     let rows;
     let countResult;
     try {
-      rows = await this.db
-        .select()
-        .from(terms)
-        .where(and(...conditions))
-        .orderBy(orderFn(orderCol))
-        .limit(limit)
-        .offset(offset);
+      // Legacy schema has no terms.site_id; select explicit columns there so
+      // the SELECT list doesn't emit a non-existent column.
+      rows = this.legacySingleSiteMode
+        ? await this.selectLegacyTerms()
+            .from(terms)
+            .where(and(...conditions))
+            .orderBy(orderFn(orderCol))
+            .limit(limit)
+            .offset(offset)
+        : await this.db
+            .select()
+            .from(terms)
+            .where(and(...conditions))
+            .orderBy(orderFn(orderCol))
+            .limit(limit)
+            .offset(offset);
 
       [countResult] = await this.db
         .select({ count: sql<number>`count(*)::int` })
@@ -500,7 +514,7 @@ export class TaxonomyService {
     try {
       result = await this.db
         .select({
-          term: terms,
+          term: this.legacySingleSiteMode ? this.legacyTermColumns() : terms,
           count: sql<number>`count(${posts.id})::int`,
         })
         .from(terms)

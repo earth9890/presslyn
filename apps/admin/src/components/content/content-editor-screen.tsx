@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ContentEditorForm, type EditorTag } from "./content-editor-form";
+import { getSessionToken } from "@/lib/api-client";
 
 interface ParentOption {
   id: number;
@@ -91,10 +92,7 @@ export function ContentEditorScreen({
       setError("");
 
       try {
-        const token = document.cookie
-          .split("; ")
-          .find((cookie) => cookie.startsWith("presslyn_session="))
-          ?.split("=")[1];
+        const token = getSessionToken();
 
         const headers = token
           ? { Authorization: `Bearer ${token}` }

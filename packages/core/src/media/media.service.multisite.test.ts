@@ -8,7 +8,14 @@ vi.mock("drizzle-orm", () => ({
     (...predicates: Array<((row: Record<string, unknown>) => boolean) | undefined>) =>
     (row: Record<string, unknown>) =>
       predicates.filter(Boolean).every((predicate) => predicate!(row)),
-  like: () => () => true,
+  like: (field: string, pattern: string) => {
+    const needle = pattern.replace(/^%|%$/g, "").toLowerCase();
+    return (row: Record<string, unknown>) => String(row[field] ?? "").toLowerCase().includes(needle);
+  },
+  or:
+    (...predicates: Array<((row: Record<string, unknown>) => boolean) | undefined>) =>
+    (row: Record<string, unknown>) =>
+      predicates.filter(Boolean).some((predicate) => predicate!(row)),
   desc: () => "desc",
   asc: () => "asc",
   sql: <T>(strings: TemplateStringsArray, ...values: unknown[]) =>
@@ -155,6 +162,22 @@ describe("MediaService multisite scoping", () => {
     expect(result.total).toBe(1);
     expect(result.media).toHaveLength(1);
     expect(result.media[0]?.siteId).toBe(2);
+  });
+
+  it("matches the search term against the filename, not just the title", async () => {
+    // "jpg" appears in filename "primary.jpg" but not in title "Primary image"
+    const result = await service.query({ search: "jpg" }, { siteId: 1 });
+
+    expect(result.total).toBe(1);
+    expect(result.media[0]?.id).toBe(1);
+  });
+
+  it("still matches the search term against the title", async () => {
+    // "image" appears in title "Docs image" but not in filename "docs.jpg"
+    const result = await service.query({ search: "image" }, { siteId: 2 });
+
+    expect(result.total).toBe(1);
+    expect(result.media[0]?.id).toBe(2);
   });
 
   it("updates media only within the requested site scope", async () => {

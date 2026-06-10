@@ -13,6 +13,7 @@ import type { ContentService } from "../content/index.js";
 import type { TaxonomyService } from "../taxonomy/index.js";
 import type { CommentsService } from "../comments/index.js";
 import type { UsersService } from "../users/index.js";
+import type { MediaService } from "../media/index.js";
 
 export interface ParsedWxrAuthor {
   login: string;
@@ -47,11 +48,19 @@ export interface ParsedWxrItem {
   comments: ParsedWxrComment[];
 }
 
+export interface ParsedWxrAttachment {
+  /** Source URL of the original file (wp:attachment_url, falling back to guid). */
+  url: string;
+  title: string;
+  slug: string;
+}
+
 export interface ParsedWxr {
   authors: ParsedWxrAuthor[];
   categories: ParsedWxrTerm[];
   tags: ParsedWxrTerm[];
   items: ParsedWxrItem[];
+  attachments: ParsedWxrAttachment[];
 }
 
 export interface ImportSummary {
@@ -60,14 +69,25 @@ export interface ImportSummary {
   categories: number;
   tags: number;
   comments: number;
+  media: number;
   skipped: number;
 }
 
 const POST_STATUSES = new Set(["draft", "publish", "pending", "private"]);
 
+/** A parsed XML element from fast-xml-parser (untyped key/value bag). */
+type XmlNode = Record<string, unknown>;
+
 function toArray<T>(value: T | T[] | undefined | null): T[] {
   if (value === undefined || value === null) return [];
   return Array.isArray(value) ? value : [value];
+}
+
+/** Normalize a possibly-single/possibly-array XML child into an XmlNode[]. */
+function asNodes(value: unknown): XmlNode[] {
+  return toArray(value).filter(
+    (v): v is XmlNode => typeof v === "object" && v !== null
+  );
 }
 
 /** Resolve the text content of a node that may be a string or `{ "#text" }`. */
@@ -101,21 +121,22 @@ export function parseWxr(xml: string): ParsedWxr {
     trimValues: true,
   });
 
-  const doc = parser.parse(xml) as Record<string, any>;
-  const channel = doc?.rss?.channel;
+  const doc = parser.parse(xml) as Record<string, unknown>;
+  const rss = doc?.rss as XmlNode | undefined;
+  const channel = rss?.channel as XmlNode | undefined;
   if (!channel) {
     throw new Error("Invalid WXR: missing <rss><channel> root.");
   }
 
-  const authors: ParsedWxrAuthor[] = toArray(channel["wp:author"]).map((a: any) => ({
+  const authors: ParsedWxrAuthor[] = asNodes(channel["wp:author"]).map((a) => ({
     login: textOf(a["wp:author_login"]),
     email: textOf(a["wp:author_email"]),
     displayName:
       textOf(a["wp:author_display_name"]) || textOf(a["wp:author_login"]),
   }));
 
-  const categories: ParsedWxrTerm[] = toArray(channel["wp:category"]).map(
-    (c: any) => {
+  const categories: ParsedWxrTerm[] = asNodes(channel["wp:category"]).map(
+    (c) => {
       const name = textOf(c["wp:cat_name"]);
       const parent = textOf(c["wp:category_parent"]);
       return {
@@ -126,26 +147,52 @@ export function parseWxr(xml: string): ParsedWxr {
     }
   );
 
-  const tags: ParsedWxrTerm[] = toArray(channel["wp:tag"]).map((t: any) => {
+  const tags: ParsedWxrTerm[] = asNodes(channel["wp:tag"]).map((t) => {
     const name = textOf(t["wp:tag_name"]);
     return { slug: textOf(t["wp:tag_slug"]) || slugify(name), name };
   });
 
-  const items: ParsedWxrItem[] = toArray(channel.item).map((item: any) => {
+  const attachments: ParsedWxrAttachment[] = [];
+
+  const items: ParsedWxrItem[] = [];
+  for (const item of asNodes(channel.item)) {
+    const itemType = textOf(item["wp:post_type"]) || "post";
+
+    // Attachments carry the media URL; collect them separately and don't
+    // treat them as content items.
+    if (itemType === "attachment") {
+      const url =
+        textOf(item["wp:attachment_url"]) || textOf(item.guid) || "";
+      if (url) {
+        const title = textOf(item.title);
+        attachments.push({
+          url,
+          title,
+          slug: textOf(item["wp:post_name"]) || slugify(title),
+        });
+      }
+      continue;
+    }
+
     const cats: { slug: string; name: string }[] = [];
     const itemTags: { slug: string; name: string }[] = [];
 
     for (const cat of toArray(item.category)) {
       const name = textOf(cat);
-      const domain = typeof cat === "object" ? cat["@_domain"] : undefined;
-      const nicename = typeof cat === "object" ? cat["@_nicename"] : undefined;
-      const entry = { slug: String(nicename ?? slugify(name)), name };
+      const attrs =
+        cat && typeof cat === "object" ? (cat as XmlNode) : undefined;
+      const domain = attrs?.["@_domain"];
+      const nicename = attrs?.["@_nicename"];
+      const entry = {
+        slug: String(nicename ?? slugify(name)),
+        name,
+      };
       if (domain === "post_tag") itemTags.push(entry);
       else cats.push(entry);
     }
 
-    const comments: ParsedWxrComment[] = toArray(item["wp:comment"]).map(
-      (cm: any) => ({
+    const comments: ParsedWxrComment[] = asNodes(item["wp:comment"]).map(
+      (cm) => ({
         authorName: textOf(cm["wp:comment_author"]),
         authorEmail: textOf(cm["wp:comment_author_email"]),
         content: textOf(cm["wp:comment_content"]),
@@ -154,22 +201,22 @@ export function parseWxr(xml: string): ParsedWxr {
     );
 
     const title = textOf(item.title);
-    return {
+    items.push({
       title,
       slug: textOf(item["wp:post_name"]) || slugify(title),
       content: textOf(item["content:encoded"]),
       excerpt: textOf(item["excerpt:encoded"]),
       status: textOf(item["wp:status"]) || "draft",
-      type: textOf(item["wp:post_type"]) || "post",
+      type: itemType,
       authorLogin: textOf(item["dc:creator"]),
       commentStatus: textOf(item["wp:comment_status"]) || "open",
       categories: cats,
       tags: itemTags,
       comments,
-    };
-  });
+    });
+  }
 
-  return { authors, categories, tags, items };
+  return { authors, categories, tags, items, attachments };
 }
 
 export interface ImportDeps {
@@ -177,11 +224,163 @@ export interface ImportDeps {
   taxonomy: TaxonomyService;
   comments: CommentsService;
   users: UsersService;
+  /** Required only when {@link ImportOptions.importMedia} is enabled. */
+  media?: MediaService;
+}
+
+/** Minimal fetch signature so tests can inject a stub downloader. */
+export type FetchLike = (
+  url: string,
+  init?: { redirect?: "manual" | "follow" | "error" }
+) => Promise<{
+  ok: boolean;
+  status: number;
+  headers: { get(name: string): string | null };
+  arrayBuffer(): Promise<ArrayBuffer>;
+}>;
+
+/**
+ * Fetch a URL with manual redirect handling, re-running the SSRF guard on every
+ * hop so an attacker can't 30x-redirect from a public host into an internal
+ * one. Returns the final OK response, or null if blocked/failed/too many hops.
+ */
+async function safeFetch(
+  rawUrl: string,
+  fetchImpl: FetchLike,
+  maxRedirects = 3
+): Promise<Awaited<ReturnType<FetchLike>> | null> {
+  let url = rawUrl;
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    if (!isSafeRemoteUrl(url)) return null;
+    const res = await fetchImpl(url, { redirect: "manual" });
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (!location) return null;
+      try {
+        url = new URL(location, url).toString();
+      } catch {
+        return null;
+      }
+      continue;
+    }
+    return res.ok ? res : null;
+  }
+  return null; // too many redirects
 }
 
 export interface ImportOptions {
   /** Author used when an item's author cannot be matched to a user. */
   defaultAuthorId: number;
+  /**
+   * Download attachment files referenced by the WXR and re-link their URLs in
+   * imported content. Requires `deps.media`. Off by default.
+   */
+  importMedia?: boolean;
+  /** Fetch implementation for downloads (defaults to global fetch). */
+  fetch?: FetchLike;
+  /** Per-file download cap in bytes (default 25MB). */
+  maxMediaBytes?: number;
+}
+
+const DEFAULT_MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+
+/** Guess a MIME type from a URL's file extension. */
+function mimeFromUrl(url: string): string | undefined {
+  const ext = url.split(/[?#]/)[0]!.split(".").pop()?.toLowerCase();
+  const map: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    avif: "image/avif",
+    pdf: "application/pdf",
+    mp3: "audio/mpeg",
+    ogg: "audio/ogg",
+    wav: "audio/wav",
+    mp4: "video/mp4",
+    webm: "video/webm",
+  };
+  return ext ? map[ext] : undefined;
+}
+
+/**
+ * SSRF guard for attacker-supplied attachment URLs. Allows only http(s) to
+ * non-internal hosts, blocking loopback, private ranges, link-local, and the
+ * cloud metadata endpoint (169.254.169.254). Literal-IP/hostname based — note
+ * this does not defend against DNS rebinding, which would need resolve-time
+ * checks; it stops the common metadata/localhost/private-literal exploits.
+ */
+function isSafePublicHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!h || h === "localhost" || h.endsWith(".localhost")) return false;
+  if (h === "0.0.0.0" || h === "::" || h === "::1") return false;
+
+  const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const a = Number(v4[1]);
+    const b = Number(v4[2]);
+    if (a === 0 || a === 127) return false; // unspecified / loopback
+    if (a === 10) return false; // private
+    if (a === 172 && b >= 16 && b <= 31) return false; // private
+    if (a === 192 && b === 168) return false; // private
+    if (a === 169 && b === 254) return false; // link-local + metadata
+  }
+
+  // IPv6 loopback / link-local (fe80::/10) / unique-local (fc00::/7)
+  if (h.startsWith("fe8") || h.startsWith("fe9") || h.startsWith("fea") ||
+      h.startsWith("feb") || h.startsWith("fc") || h.startsWith("fd")) {
+    return false;
+  }
+  return true;
+}
+
+/** Whether a remote attachment URL is safe for the importer to fetch. */
+function isSafeRemoteUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  return isSafePublicHostname(url.hostname);
+}
+
+/** Filename (basename) from a URL path. */
+function filenameFromUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const base = u.pathname.split("/").filter(Boolean).pop();
+    return base || "upload";
+  } catch {
+    const base = url.split(/[?#]/)[0]!.split("/").filter(Boolean).pop();
+    return base || "upload";
+  }
+}
+
+/**
+ * Escape a string for safe use inside a RegExp.
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Replace every old attachment URL in `text` with its imported counterpart.
+ * Longest URLs are replaced first so a URL that is a prefix of another doesn't
+ * partially rewrite it.
+ */
+function relinkUrls(text: string, urlMap: Map<string, string>): string {
+  if (!text || urlMap.size === 0) return text;
+  let result = text;
+  const entries = [...urlMap.entries()].sort(
+    (a, b) => b[0].length - a[0].length
+  );
+  for (const [oldUrl, newUrl] of entries) {
+    result = result.replace(new RegExp(escapeRegExp(oldUrl), "g"), newUrl);
+  }
+  return result;
 }
 
 /**
@@ -200,8 +399,51 @@ export async function importWxr(
     categories: 0,
     tags: 0,
     comments: 0,
+    media: 0,
     skipped: 0,
   };
+
+  // 0. Media — download attachments and build an old-URL → new-URL map used
+  //    to re-link references inside imported content.
+  const urlMap = new Map<string, string>();
+  if (options.importMedia && deps.media && parsed.attachments.length > 0) {
+    const fetchImpl: FetchLike =
+      options.fetch ?? (globalThis.fetch as unknown as FetchLike);
+    const maxBytes = options.maxMediaBytes ?? DEFAULT_MAX_MEDIA_BYTES;
+
+    for (const attachment of parsed.attachments) {
+      try {
+        // SSRF guard: validates the URL and every redirect hop.
+        const res = await safeFetch(attachment.url, fetchImpl);
+        if (!res) continue;
+
+        // Reject oversized downloads up-front via Content-Length when present.
+        const declared = Number(res.headers.get("content-length") ?? "");
+        if (Number.isFinite(declared) && declared > maxBytes) continue;
+
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length === 0 || buf.length > maxBytes) continue;
+
+        const mimeType =
+          res.headers.get("content-type")?.split(";")[0]?.trim() ||
+          mimeFromUrl(attachment.url) ||
+          "application/octet-stream";
+
+        const record = await deps.media.upload({
+          uploaderId: options.defaultAuthorId,
+          filename: filenameFromUrl(attachment.url),
+          mimeType,
+          buffer: buf,
+          title: attachment.title || undefined,
+        });
+
+        urlMap.set(attachment.url, record.url);
+        summary.media++;
+      } catch {
+        /* unreachable URL, invalid file, etc. — skip this attachment */
+      }
+    }
+  }
 
   // 1. Terms — ensure every category/tag exists; build name->id maps.
   const categoryIdByName = new Map<string, number>();
@@ -252,8 +494,8 @@ export async function importWxr(
       authorId,
       postType: item.type,
       title: item.title,
-      content: item.content,
-      excerpt: item.excerpt,
+      content: relinkUrls(item.content, urlMap),
+      excerpt: relinkUrls(item.excerpt, urlMap),
       status: status as "draft" | "publish" | "pending" | "private",
       slug: item.slug,
       commentStatus: item.commentStatus === "closed" ? "closed" : "open",
@@ -279,16 +521,22 @@ export async function importWxr(
     // Comments.
     for (const cm of item.comments) {
       if (!cm.content) continue;
-      const comment = await deps.comments.createComment({
-        postId: created.id,
-        authorName: cm.authorName || "Anonymous",
-        authorEmail: cm.authorEmail || undefined,
-        content: cm.content,
-      });
-      if (cm.approved) {
-        await deps.comments.approveComment(comment.id);
+      try {
+        const comment = await deps.comments.createComment({
+          postId: created.id,
+          authorName: cm.authorName || "Anonymous",
+          authorEmail: cm.authorEmail || undefined,
+          content: cm.content,
+        });
+        if (cm.approved) {
+          await deps.comments.approveComment(comment.id);
+        }
+        summary.comments++;
+      } catch {
+        // A single bad/blocked comment (e.g. the imported post has comments
+        // closed) must not abort the whole import — skip it and continue.
+        summary.skipped++;
       }
-      summary.comments++;
     }
   }
 

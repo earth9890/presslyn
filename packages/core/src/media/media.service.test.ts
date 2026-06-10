@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import sharp from "sharp";
 
 // We test the private sanitizeFilename indirectly through upload behavior,
 // but we can also test the media service's validation logic by attempting uploads.
@@ -21,6 +22,11 @@ function createMockStorage() {
     save: vi.fn(async (filepath: string, buffer: Buffer) => {
       files.set(filepath, buffer);
       return `/uploads/${filepath}`;
+    }),
+    read: vi.fn(async (filepath: string) => {
+      const buf = files.get(filepath);
+      if (!buf) throw new Error(`ENOENT: ${filepath}`);
+      return buf;
     }),
     delete: vi.fn(async (filepath: string) => {
       files.delete(filepath);
@@ -81,13 +87,6 @@ function createMinimalJpeg(): Buffer {
   return Buffer.from([
     0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
     0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
-  ]);
-}
-
-// Create a minimal valid PNG
-function createMinimalPng(): Buffer {
-  return Buffer.from([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
   ]);
 }
 
@@ -219,6 +218,50 @@ describe("MediaService", () => {
           isAdmin: true, // unknown field
         } as any)
       ).rejects.toThrow();
+    });
+  });
+
+  describe("metadata stripping", () => {
+    it("strips EXIF (incl. GPS) from the stored original image", async () => {
+      const { MediaService } = await import("./media.service.js");
+      const service = new MediaService(mockDb, mockStorage);
+
+      // A real JPEG carrying EXIF metadata.
+      const withExif = await sharp({
+        create: {
+          width: 16,
+          height: 16,
+          channels: 3,
+          background: { r: 10, g: 20, b: 30 },
+        },
+      })
+        .withExif({ IFD0: { Copyright: "uploader-location-secret" } })
+        .jpeg()
+        .toBuffer();
+
+      // Sanity: the input genuinely has EXIF.
+      expect((await sharp(withExif).metadata()).exif).toBeTruthy();
+
+      // The file is written to storage before the DB step; the mock DB has no
+      // primary site, so swallow that post-save error and assert on storage
+      // (same pattern as the filename-sanitization test below).
+      try {
+        await service.upload({
+          uploaderId: 1,
+          filename: "photo.jpg",
+          mimeType: "image/jpeg",
+          buffer: withExif,
+        });
+      } catch {
+        /* post-save site resolution throws in the mock — irrelevant here */
+      }
+
+      // Every persisted file (original + any thumbnails) must be EXIF-free.
+      const stored = [...mockStorage.files.values()];
+      expect(stored.length).toBeGreaterThan(0);
+      for (const buf of stored) {
+        expect((await sharp(buf).metadata()).exif).toBeFalsy();
+      }
     });
   });
 

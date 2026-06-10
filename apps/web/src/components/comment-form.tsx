@@ -32,12 +32,14 @@ export function CommentForm({ postId }: { postId: number }) {
         }),
       });
 
-      const data = (await response.json()) as { error?: string; message?: string };
+      const data = (await response.json().catch(() => null)) as
+        | { error?: string; message?: string }
+        | null;
       if (!response.ok) {
-        throw new Error(data.error ?? "Could not submit comment.");
+        throw new Error(data?.error ?? "Could not submit comment.");
       }
 
-      setSuccess(data.message ?? "Comment submitted.");
+      setSuccess(data?.message ?? "Comment submitted.");
       setContent("");
       setWebsite("");
     } catch (err) {
@@ -73,7 +75,18 @@ export function CommentForm({ postId }: { postId: number }) {
         </label>
       </div>
 
-      <label className="hidden" aria-hidden="true">
+      {/* Honeypot: positioned off-screen rather than display:none so naive
+          bots that skip hidden fields still fill it. Real users never see it. */}
+      <label
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          width: "1px",
+          height: "1px",
+          overflow: "hidden",
+        }}
+      >
         Website
         <input
           tabIndex={-1}

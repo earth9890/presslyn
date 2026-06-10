@@ -36,6 +36,8 @@ export interface SettingsFormProps {
   values: Record<string, string | number | boolean>;
   /** Category choices for the "default category" select. */
   categoryOptions: { value: string; label: string }[];
+  /** Published-page choices for the privacy-policy-page select. */
+  pageOptions: { value: string; label: string }[];
 }
 
 const TIMEZONES = [
@@ -98,7 +100,8 @@ const NUMBER_KEYS = new Set([
 const BOOLEAN_KEYS = new Set(["blog_public", "uploads_use_yearmonth_folders"]);
 
 function buildSections(
-  categoryOptions: { value: string; label: string }[]
+  categoryOptions: { value: string; label: string }[],
+  pageOptions: { value: string; label: string }[]
 ): SectionDef[] {
   return [
     {
@@ -239,16 +242,37 @@ function buildSections(
         },
       ],
     },
+    {
+      id: "privacy",
+      label: "Privacy",
+      description: "Designate a page that explains your privacy policy.",
+      fields: [
+        {
+          key: "wp_page_for_privacy_policy",
+          label: "Privacy Policy Page",
+          type: "select",
+          options: pageOptions,
+          hint: "Choose a published page to use as your privacy policy.",
+        },
+      ],
+    },
   ];
 }
 
-export function SettingsForm({ values: initial, categoryOptions }: SettingsFormProps) {
-  const sections = useMemo(() => buildSections(categoryOptions), [categoryOptions]);
+export function SettingsForm({
+  values: initial,
+  categoryOptions,
+  pageOptions,
+}: SettingsFormProps) {
+  const sections = useMemo(
+    () => buildSections(categoryOptions, pageOptions),
+    [categoryOptions, pageOptions]
+  );
   const [activeTab, setActiveTab] = useState(sections[0].id);
 
   const [values, setValues] = useState<Record<string, string | boolean>>(() => {
     const out: Record<string, string | boolean> = {};
-    for (const section of buildSections(categoryOptions)) {
+    for (const section of buildSections(categoryOptions, pageOptions)) {
       for (const f of section.fields) {
         const raw = initial[f.key];
         if (f.type === "checkbox") out[f.key] = Boolean(raw);

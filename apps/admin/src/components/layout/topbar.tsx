@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   Menu01Icon,
   Notification02Icon,
@@ -25,9 +26,40 @@ export function Topbar({
   colorScheme,
   onColorSchemeChange,
 }: TopbarProps) {
-  const handleLogout = () => {
-    document.cookie =
-      "presslyn_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+  const accountMenuRef = useRef<HTMLDetailsElement>(null);
+
+  // Close the account disclosure on Escape or an outside click.
+  useEffect(() => {
+    function closeMenu() {
+      if (accountMenuRef.current) accountMenuRef.current.open = false;
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") closeMenu();
+    }
+    function onPointerDown(e: MouseEvent) {
+      const el = accountMenuRef.current;
+      if (el?.open && e.target instanceof Node && !el.contains(e.target)) {
+        closeMenu();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    // The session cookie is HttpOnly, so it must be cleared server-side.
+    try {
+      await fetch("/api/v1/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+    } catch {
+      // Even if the request fails, fall through to the login redirect.
+    }
     window.location.assign("/login");
   };
 
@@ -94,7 +126,7 @@ export function Topbar({
             </select>
           </label>
 
-          <details className="relative">
+          <details ref={accountMenuRef} className="relative">
             <summary className="flex h-8 cursor-pointer list-none items-center gap-2 rounded-xl border border-transparent px-3 text-[13px] text-admin-bar-text transition-colors hover:border-white/8 hover:bg-admin-bar-hover hover:text-admin-bar-text-active">
               <UserCircleIcon size={16} />
               <span className="hidden sm:inline">Admin</span>
@@ -128,6 +160,14 @@ export function Topbar({
                   ))}
                 </select>
               </div>
+              <AdminNavLink
+                href="/profile"
+                pendingLabel="Loading your profile…"
+                className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary"
+              >
+                <UserCircleIcon size={14} />
+                <span>Edit My Profile</span>
+              </AdminNavLink>
               <button
                 type="button"
                 onClick={handleLogout}

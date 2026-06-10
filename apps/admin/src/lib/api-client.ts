@@ -12,10 +12,12 @@ const SESSION_COOKIE = "presslyn_session";
 /** Read the current session token from the browser cookie, or null. */
 export function getSessionToken(): string | null {
   if (typeof document === "undefined") return null;
+  const prefix = `${SESSION_COOKIE}=`;
   const match = document.cookie
     .split("; ")
-    .find((cookie) => cookie.startsWith(`${SESSION_COOKIE}=`));
-  return match ? (match.split("=")[1] ?? null) : null;
+    .find((cookie) => cookie.startsWith(prefix));
+  // Slice after the first "=" so a value containing "=" isn't truncated.
+  return match ? match.slice(prefix.length) : null;
 }
 
 export class ApiError extends Error {
@@ -44,16 +46,14 @@ export async function apiFetch<T = unknown>(
   path: string,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  const token = getSessionToken();
-  if (!token) {
-    throw new ApiError("Your session expired. Sign in again and retry.", 401);
-  }
-
   const { method = "GET", body, raw = false } = options;
 
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-  };
+  // Auth rides on the HttpOnly `presslyn_session` cookie, which the browser
+  // sends automatically with same-origin requests. A legacy JS-readable token
+  // (if present) is still forwarded as a Bearer header for back-compat.
+  const headers: Record<string, string> = {};
+  const token = getSessionToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   let payload: BodyInit | undefined;
   if (body !== undefined) {
@@ -65,7 +65,12 @@ export async function apiFetch<T = unknown>(
     }
   }
 
-  const response = await fetch(path, { method, headers, body: payload });
+  const response = await fetch(path, {
+    method,
+    headers,
+    body: payload,
+    credentials: "same-origin",
+  });
 
   const data = (await response.json().catch(() => null)) as
     | (T & { error?: string })

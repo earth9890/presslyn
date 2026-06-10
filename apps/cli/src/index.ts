@@ -17,6 +17,7 @@ import {
   collectWxrData,
   parseWxr,
   importWxr,
+  cacheStoreFromEnv,
 } from "@presslyn/core";
 import { services, done } from "./services.js";
 
@@ -169,6 +170,7 @@ program
     "default author id for unmatched authors",
     "1"
   )
+  .option("-m, --media", "download and re-link attachment media", false)
   .action(async (file: string, opts) => {
     try {
       const xml = await readFile(file, "utf-8");
@@ -180,17 +182,44 @@ program
           taxonomy: services.taxonomy,
           comments: services.comments,
           users: services.users,
+          media: services.media,
         },
-        { defaultAuthorId: Number(opts.author) || 1 }
+        { defaultAuthorId: Number(opts.author) || 1, importMedia: !!opts.media }
       );
       console.log(
         `Imported ${summary.posts} posts, ${summary.pages} pages, ` +
-          `${summary.comments} comments (${summary.categories} categories, ` +
-          `${summary.tags} tags; ${summary.skipped} skipped).`
+          `${summary.comments} comments, ${summary.media} media ` +
+          `(${summary.categories} categories, ${summary.tags} tags; ` +
+          `${summary.skipped} skipped).`
       );
       done();
     } catch (err) {
       fail(err instanceof Error ? err.message : "Import failed.");
+    }
+  });
+
+// ─── cache:flush ───────────────────────────────────────────
+program
+  .command("cache:flush")
+  .description("Flush the object cache (Redis when REDIS_URL is set)")
+  .action(async () => {
+    try {
+      const store = cacheStoreFromEnv();
+      const backed = !!process.env.REDIS_URL;
+      // Flush every namespace (empty prefix clears all cache keys).
+      await store.flushPrefix("");
+      await store.close?.();
+      if (backed) {
+        console.log("Flushed the Redis object cache.");
+      } else {
+        console.log(
+          "No REDIS_URL configured — the object cache is per-process " +
+            "(in-memory), so there is nothing shared to flush."
+        );
+      }
+      done();
+    } catch (err) {
+      fail(err instanceof Error ? err.message : "Could not flush cache.");
     }
   });
 

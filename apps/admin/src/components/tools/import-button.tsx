@@ -11,6 +11,7 @@ interface ImportSummary {
   categories: number;
   tags: number;
   comments: number;
+  media: number;
   skipped: number;
 }
 
@@ -20,6 +21,7 @@ export function ImportButton() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<ImportSummary | null>(null);
+  const [importMedia, setImportMedia] = useState(false);
 
   async function handleFile(file: File) {
     setBusy(true);
@@ -28,6 +30,7 @@ export function ImportButton() {
     try {
       const form = new FormData();
       form.append("file", file);
+      if (importMedia) form.append("importMedia", "true");
       const res = await apiFetch<{ summary: ImportSummary }>("/api/v1/import", {
         method: "POST",
         body: form,
@@ -44,6 +47,16 @@ export function ImportButton() {
 
   return (
     <div className="ml-4 flex shrink-0 flex-col items-end gap-1">
+      <label className="flex items-center gap-1.5 text-xs text-text-secondary">
+        <input
+          type="checkbox"
+          className="rounded border-border"
+          checked={importMedia}
+          onChange={(e) => setImportMedia(e.target.checked)}
+          disabled={busy}
+        />
+        Download &amp; re-link media
+      </label>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
@@ -68,8 +81,9 @@ export function ImportButton() {
       {summary ? (
         <span className="text-right text-xs text-success">
           Imported {summary.posts} posts, {summary.pages} pages,{" "}
-          {summary.comments} comments ({summary.categories} categories,{" "}
-          {summary.tags} tags; {summary.skipped} skipped).
+          {summary.comments} comments, {summary.media} media (
+          {summary.categories} categories, {summary.tags} tags;{" "}
+          {summary.skipped} skipped).
         </span>
       ) : null}
     </div>

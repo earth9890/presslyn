@@ -4,6 +4,7 @@
  */
 
 import type { Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
 import {
   PresslynError,
@@ -36,7 +37,10 @@ export function handleRestError(err: unknown, c: Context) {
     return c.json({ error: err.message, code: err.code }, 400);
   }
   if (err instanceof PresslynError) {
-    return c.json({ error: err.message, code: err.code }, err.statusCode as any);
+    return c.json(
+      { error: err.message, code: err.code },
+      err.statusCode as ContentfulStatusCode,
+    );
   }
 
   // Known middleware error

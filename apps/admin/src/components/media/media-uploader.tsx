@@ -58,6 +58,9 @@ export function MediaUploader() {
   function handleDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragOver(false);
+    // Ignore drops while a batch is in flight — a concurrent uploadFiles()
+    // would reset the item list and race the in-progress loop.
+    if (busy) return;
     if (e.dataTransfer.files?.length) uploadFiles(e.dataTransfer.files);
   }
 

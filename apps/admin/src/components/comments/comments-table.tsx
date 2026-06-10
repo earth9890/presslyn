@@ -283,7 +283,7 @@ export function CommentsTable({
                         <p className="line-clamp-2 text-text-secondary">
                           {comment.content}
                         </p>
-                        <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                           {!comment.approved ? (
                             <button
                               onClick={() => runAction(comment.id, "approve")}

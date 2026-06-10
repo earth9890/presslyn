@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { PencilEdit02Icon, SentIcon } from "hugeicons-react";
+import { getSessionToken } from "@/lib/api-client";
 
 interface QuickDraftWidgetProps {
   siteTitle: string;
@@ -30,27 +31,22 @@ export function QuickDraftWidget({ siteTitle }: QuickDraftWidgetProps) {
       return;
     }
 
-    const token = document.cookie
-      .split("; ")
-      .find((cookie) => cookie.startsWith("presslyn_session="))
-      ?.split("=")[1];
-
-    if (!token) {
-      setError("Your session expired. Sign in again and retry.");
-      return;
-    }
-
     setSaving(true);
     setError("");
     setSavedDraftId(null);
 
     try {
+      // Auth rides on the HttpOnly session cookie; forward a legacy token only
+      // if one is JS-readable.
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const token = getSessionToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       const response = await fetch("/api/v1/posts", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           title: title.trim(),
           content: content.trim(),

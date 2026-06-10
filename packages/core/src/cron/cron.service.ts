@@ -82,9 +82,11 @@ export class CronService {
   }
 
   /**
-   * Start the cron system.
+   * Start the cron system. Idempotent — a second call while already running is
+   * a no-op so existing timers aren't overwritten and leaked.
    */
   start(): void {
+    if (this.running) return;
     this.running = true;
     for (const [key, event] of this.events) {
       this.scheduleTimer(key, event);
@@ -116,10 +118,27 @@ export class CronService {
     }));
   }
 
+  /** setTimeout overflows (and fires immediately) past this; chunk long waits. */
+  private static readonly MAX_TIMEOUT_MS = 2_147_483_647;
+
   private scheduleTimer(key: string, event: ScheduledEvent): void {
-    const delay = Math.max(0, event.nextRun - Date.now());
+    // Always clear any prior timer for this event so re-scheduling can't leak.
+    if (event.timer) {
+      clearTimeout(event.timer);
+      event.timer = undefined;
+    }
+
+    const remaining = event.nextRun - Date.now();
+    // Clamp to setTimeout's safe max; a clamped wait re-schedules until due.
+    const delay = Math.max(0, Math.min(remaining, CronService.MAX_TIMEOUT_MS));
 
     event.timer = setTimeout(async () => {
+      // If the delay was clamped (far-future event), we haven't reached the
+      // run time yet — re-schedule the remaining wait instead of firing.
+      if (Date.now() < event.nextRun) {
+        if (this.running) this.scheduleTimer(key, event);
+        return;
+      }
       try {
         await hooks.doAction(event.hook, ...event.args);
       } catch (err) {

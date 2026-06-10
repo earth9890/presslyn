@@ -386,3 +386,61 @@ input[type="checkbox"] {
   margin: 1rem 0;
   border-radius: 1rem;
 }
+
+/* Reading view for the authenticated draft preview (/preview/[type]/[id]). */
+.prose-content {
+  line-height: 1.75;
+  font-size: 1.075rem;
+  color: var(--color-text-primary, #1d2327);
+}
+.prose-content > * + * {
+  margin-top: 1.25rem;
+}
+.prose-content h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 2.5rem;
+}
+.prose-content h3 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-top: 2rem;
+}
+.prose-content a {
+  color: #3582c4;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-content ul,
+.prose-content ol {
+  padding-left: 1.5rem;
+}
+.prose-content ul {
+  list-style: disc;
+}
+.prose-content ol {
+  list-style: decimal;
+}
+.prose-content blockquote {
+  border-left: 3px solid #3582c4;
+  padding-left: 1.25rem;
+  font-style: italic;
+  opacity: 0.85;
+}
+.prose-content pre {
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+.prose-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+.prose-content img {
+  border-radius: 0.5rem;
+  max-width: 100%;
+  height: auto;
+}

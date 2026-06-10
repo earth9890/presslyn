@@ -26,18 +26,22 @@ const OPTION_DEFAULTS: Record<string, string | number | boolean> = {
   large_size_h: 1024,
   uploads_use_yearmonth_folders: true,
   permalink_structure: "/%postname%/",
+  wp_page_for_privacy_policy: 0,
 };
 
 export default async function SettingsPage() {
   const keys = Object.keys(OPTION_DEFAULTS);
 
-  const [resolved, categories] = await Promise.all([
+  const [resolved, categories, pages] = await Promise.all([
     Promise.all(
       keys.map((key) =>
         services.options.getOption(key).catch(() => undefined)
       )
     ),
     services.taxonomy.getTermsWithCounts("category").catch(() => []),
+    services.content
+      .queryPosts({ postType: "page", status: "publish", limit: 100 })
+      .catch(() => ({ posts: [] as { id: number; title: string }[] })),
   ]);
 
   const values: Record<string, string | number | boolean> = {};
@@ -51,9 +55,18 @@ export default async function SettingsPage() {
     label: c.name,
   }));
 
+  const pageOptions = [
+    { value: "0", label: "— Select a page —" },
+    ...pages.posts.map((p) => ({ value: String(p.id), label: p.title })),
+  ];
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <SettingsForm values={values} categoryOptions={categoryOptions} />
+      <SettingsForm
+        values={values}
+        categoryOptions={categoryOptions}
+        pageOptions={pageOptions}
+      />
     </div>
   );
 }

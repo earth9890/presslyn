@@ -171,6 +171,13 @@ export {
   type PluginDefinition,
   type PluginInfo,
   type PluginOptionStore,
+  PLUGIN_MANIFEST_FILENAME,
+  resolvePluginsDirectory,
+  readPluginManifestFromDirectory,
+  discoverFilesystemPlugins,
+  loadFilesystemPlugin,
+  registerFilesystemPlugins,
+  type FilesystemPlugin,
 } from "./plugins/index.js";
 
 // Blocks
@@ -221,6 +228,10 @@ export {
   MultisiteService,
   type CreateSiteInput,
   type UpdateSiteInput,
+  normalizeSitePath,
+  isPathUnderSite,
+  stripSitePath,
+  matchSiteBasePath,
 } from "./multisite/index.js";
 
 // Import (WXR)

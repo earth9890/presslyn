@@ -8,7 +8,7 @@
     "prebuild": "pnpm --filter @presslyn/core build && pnpm --filter @presslyn/database build && pnpm --filter @presslyn/api build && pnpm --filter @presslyn/ui build",
     "build": "next build",
     "start": "next start --port 3000",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf .next"
   },
@@ -30,12 +30,14 @@
     "superjson": "^2.2.0"
   },
   "devDependencies": {
+    "@presslyn/config-eslint": "workspace:*",
     "@presslyn/config-ts": "workspace:*",
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "tailwindcss": "^4.0.0",
-    "@tailwindcss/postcss": "^4.0.0",
+    "eslint": "^9.0.0",
     "postcss": "^8.5.10",
+    "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0"
   }
 }

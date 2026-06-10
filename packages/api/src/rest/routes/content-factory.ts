@@ -154,6 +154,7 @@ export function createContentRestRoutes(postType: "post" | "page") {
       const id = parseId(c);
 
       const post = await services.content.getPostById(id);
+      if (post.postType !== postType) throw new NotFoundError(label);
 
       // Published content is public
       if (post.status === "publish") {
@@ -196,6 +197,7 @@ export function createContentRestRoutes(postType: "post" | "page") {
       const id = parseId(c);
 
       const existing = await services.content.getPostById(id);
+      if (existing.postType !== postType) throw new NotFoundError(label);
       if (existing.authorId !== userId) {
         await requireCap(c, caps.editOthers);
       }
@@ -221,6 +223,7 @@ export function createContentRestRoutes(postType: "post" | "page") {
       const id = parseId(c);
 
       const existing = await services.content.getPostById(id);
+      if (existing.postType !== postType) throw new NotFoundError(label);
       if (existing.authorId !== userId) {
         await requireCap(c, caps.editOthers);
       }
@@ -303,6 +306,7 @@ export function createContentRestRoutes(postType: "post" | "page") {
 
       // Check ownership — if not the author, require edit_others
       const existing = await services.content.getPostById(id);
+      if (existing.postType !== postType) throw new NotFoundError(label);
       if (existing.authorId !== userId) {
         await requireCap(c, caps.editOthers);
       }
@@ -330,6 +334,7 @@ export function createContentRestRoutes(postType: "post" | "page") {
       const validated = UpdatePostTermsSchema.parse(body);
 
       const existing = await services.content.getPostById(id);
+      if (existing.postType !== postType) throw new NotFoundError(label);
       if (existing.authorId !== userId) {
         await requireCap(c, caps.editOthers);
       }
@@ -376,6 +381,7 @@ export function createContentRestRoutes(postType: "post" | "page") {
       const id = parseId(c);
 
       const existing = await services.content.getPostById(id);
+      if (existing.postType !== postType) throw new NotFoundError(label);
       if (existing.authorId !== userId) {
         await requireCap(c, caps.deleteOthers);
       }
@@ -401,6 +407,7 @@ export function createContentRestRoutes(postType: "post" | "page") {
       const id = parseId(c);
 
       const existing = await services.content.getPostById(id);
+      if (existing.postType !== postType) throw new NotFoundError(label);
       if (existing.authorId !== userId) {
         await requireCap(c, caps.deleteOthers);
       }
@@ -426,6 +433,7 @@ export function createContentRestRoutes(postType: "post" | "page") {
       const id = parseId(c);
 
       const existing = await services.content.getPostById(id);
+      if (existing.postType !== postType) throw new NotFoundError(label);
       if (existing.authorId !== userId) {
         await requireCap(c, caps.deleteOthers);
       }

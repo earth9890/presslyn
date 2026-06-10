@@ -15,7 +15,7 @@
  * - Null byte rejection in filenames
  */
 
-import { eq, and, desc, asc, like, sql } from "drizzle-orm";
+import { eq, and, or, gte, lt, desc, asc, like, sql } from "drizzle-orm";
 import { type Database } from "@presslyn/database";
 import { media, sites } from "@presslyn/database";
 import sharp from "sharp";
@@ -66,6 +66,8 @@ const MediaQuerySchema = z
   .object({
     mimeType: z.string().max(100).optional(),
     search: z.string().max(200).optional(),
+    dateFrom: z.union([z.string(), z.date()]).optional(),
+    dateTo: z.union([z.string(), z.date()]).optional(),
     orderBy: z.enum(["id", "date", "title"]).optional(),
     order: z.enum(["asc", "desc"]).optional(),
     limit: z.number().int().min(1).max(100).optional(),
@@ -94,6 +96,10 @@ export interface UpdateMediaInput {
 export interface MediaQueryOptions {
   mimeType?: string;
   search?: string;
+  /** Inclusive lower bound on createdAt (ISO string or Date). */
+  dateFrom?: string | Date;
+  /** Exclusive upper bound on createdAt (ISO string or Date). */
+  dateTo?: string | Date;
   orderBy?: "id" | "date" | "title";
   order?: "asc" | "desc";
   limit?: number;
@@ -102,6 +108,24 @@ export interface MediaQueryOptions {
 
 export interface MediaScope {
   siteId?: number;
+}
+
+/** Image edit operations for {@link MediaService.editImage}. */
+export interface ImageEditOps {
+  /** Clockwise rotation in degrees; normalized to 0/90/180/270. */
+  rotate?: number;
+  /** Flip vertically (top-bottom mirror). */
+  flipVertical?: boolean;
+  /** Flip horizontally (left-right mirror). */
+  flipHorizontal?: boolean;
+  /** Absolute pixel crop rectangle, applied after rotation/flips. */
+  crop?: { left: number; top: number; width: number; height: number };
+}
+
+/** Normalize an arbitrary degree value to one of 0/90/180/270. */
+function normalizeRotation(deg: number): 0 | 90 | 180 | 270 {
+  const n = ((Math.round(deg / 90) * 90) % 360 + 360) % 360;
+  return n as 0 | 90 | 180 | 270;
 }
 
 type MediaRow = typeof media.$inferSelect;
@@ -309,34 +333,61 @@ export class MediaService {
     const filepath = `${year}/${month}/${uniqueName}`;
 
     // ── Save original file ───────────────────────────────
-    const url = await this.storage.save(filepath, parsed.buffer);
-
     // ── Image processing ─────────────────────────────────
     let width: number | null = null;
     let height: number | null = null;
     const thumbnails: Record<string, { filepath: string; url: string }> = {};
+    // The buffer actually persisted as the "original". For raster images we
+    // re-encode to strip EXIF/GPS (Sharp drops metadata by default) so the
+    // served full-size image can't leak the uploader's location/device.
+    let storedBuffer = parsed.buffer;
+    const isRasterImage = IMAGE_MIME_TYPES.has(parsed.mimeType);
 
-    if (IMAGE_MIME_TYPES.has(parsed.mimeType)) {
+    if (isRasterImage) {
       const metadata = await sharp(parsed.buffer).metadata();
-      width = metadata.width ?? null;
-      height = metadata.height ?? null;
+      const sourceWidth = metadata.width ?? 0;
+      const sourceHeight = metadata.height ?? 0;
 
-      // ── Decompression bomb check ─────────────────────
-      if (width && height && width * height > MAX_IMAGE_PIXELS) {
-        // Clean up the already-saved file
-        await this.storage.delete(filepath);
+      // ── Decompression bomb check (before persisting/re-encoding) ──
+      if (
+        sourceWidth &&
+        sourceHeight &&
+        sourceWidth * sourceHeight > MAX_IMAGE_PIXELS
+      ) {
         throw new ValidationError(
-          `Image dimensions ${width}x${height} exceed maximum of ${MAX_IMAGE_PIXELS} pixels`
+          `Image dimensions ${sourceWidth}x${sourceHeight} exceed maximum of ${MAX_IMAGE_PIXELS} pixels`
         );
       }
 
+      width = sourceWidth || null;
+      height = sourceHeight || null;
+
+      // Re-encode decodable raster images to strip metadata. Skip GIF (avoids
+      // flattening animation) and degenerate/undecodable inputs. `.rotate()`
+      // bakes in EXIF orientation before the metadata is dropped.
+      if (parsed.mimeType !== "image/gif" && sourceWidth && sourceHeight) {
+        try {
+          storedBuffer = await sharp(parsed.buffer).rotate().toBuffer();
+          const cleaned = await sharp(storedBuffer).metadata();
+          width = cleaned.width ?? width;
+          height = cleaned.height ?? height;
+        } catch {
+          // Undecodable image: keep the original bytes rather than fail upload.
+          storedBuffer = parsed.buffer;
+        }
+      }
+    }
+
+    const url = await this.storage.save(filepath, storedBuffer);
+
+    if (isRasterImage) {
       // ── Generate thumbnails (parallel) ───────────────
       if (width && height) {
         const sizes = getAllImageSizes();
         const thumbResults = await Promise.allSettled(
           sizes.map(async (size) => {
             const thumbBuffer = await this.resizeImage(
-              parsed.buffer,
+              storedBuffer,
               size,
               width!,
               height!
@@ -368,7 +419,7 @@ export class MediaService {
       uploaderId: parsed.uploaderId,
       filename: uniqueName,
       mimeType: parsed.mimeType,
-      fileSize: parsed.buffer.length,
+      fileSize: storedBuffer.length,
       url,
       alt: parsed.alt ?? "",
       title: parsed.title ?? safeBase,
@@ -387,7 +438,7 @@ export class MediaService {
                 uploaderId: parsed.uploaderId,
                 filename: uniqueName,
                 mimeType: parsed.mimeType,
-                fileSize: parsed.buffer.length,
+                fileSize: storedBuffer.length,
                 url,
                 alt: parsed.alt ?? "",
                 title: parsed.title ?? safeBase,
@@ -479,6 +530,136 @@ export class MediaService {
   }
 
   /**
+   * Apply non-destructive-style image edits (rotate / flip / crop) to an
+   * existing image, overwriting the original file and regenerating all
+   * thumbnails. Returns the updated record. Only image media is editable.
+   *
+   * `rotate` is normalized to 0/90/180/270. `crop` is an absolute pixel
+   * rectangle validated against the post-rotation dimensions.
+   */
+  async editImage(
+    id: number,
+    ops: ImageEditOps,
+    scope?: MediaScope
+  ): Promise<MediaRow> {
+    const record = await this.getById(id, scope);
+
+    if (!IMAGE_MIME_TYPES.has(record.mimeType)) {
+      throw new ValidationError("Only image media can be edited");
+    }
+
+    const meta = (record.meta as Record<string, unknown> | null) ?? {};
+    const filepath = meta.filepath as string | undefined;
+    if (!filepath) {
+      throw new ValidationError("Original file path is unavailable for this media");
+    }
+
+    const rotate = normalizeRotation(ops.rotate ?? 0);
+    const hasEdit =
+      rotate !== 0 || ops.flipVertical || ops.flipHorizontal || !!ops.crop;
+    if (!hasEdit) {
+      throw new ValidationError("No image edits were requested");
+    }
+
+    const original = await this.storage.read(filepath);
+
+    // Build the transform pipeline. Rotation first, then flips, then crop —
+    // crop coordinates are interpreted against the post-rotation image.
+    let pipeline = sharp(original);
+    if (rotate !== 0) pipeline = pipeline.rotate(rotate);
+    if (ops.flipVertical) pipeline = pipeline.flip();
+    if (ops.flipHorizontal) pipeline = pipeline.flop();
+
+    if (ops.crop) {
+      // Materialize rotation/flips so extract works on the oriented image.
+      const oriented = await pipeline.toBuffer();
+      const orientedMeta = await sharp(oriented).metadata();
+      const ow = orientedMeta.width ?? 0;
+      const oh = orientedMeta.height ?? 0;
+      const left = Math.max(0, Math.floor(ops.crop.left));
+      const top = Math.max(0, Math.floor(ops.crop.top));
+      const width = Math.floor(ops.crop.width);
+      const height = Math.floor(ops.crop.height);
+      if (
+        width <= 0 ||
+        height <= 0 ||
+        left + width > ow ||
+        top + height > oh
+      ) {
+        throw new ValidationError(
+          `Crop rectangle ${left},${top} ${width}x${height} is out of bounds for a ${ow}x${oh} image`
+        );
+      }
+      pipeline = sharp(oriented).extract({ left, top, width, height });
+    }
+
+    const editedBuffer = await pipeline.toBuffer();
+    const editedMeta = await sharp(editedBuffer).metadata();
+    const width = editedMeta.width ?? null;
+    const height = editedMeta.height ?? null;
+
+    if (width && height && width * height > MAX_IMAGE_PIXELS) {
+      throw new ValidationError(
+        `Edited image dimensions ${width}x${height} exceed maximum of ${MAX_IMAGE_PIXELS} pixels`
+      );
+    }
+
+    // Overwrite the original file in place (URL is preserved).
+    await this.storage.save(filepath, editedBuffer);
+
+    // Regenerate thumbnails: clean up old ones, produce fresh sizes.
+    const oldThumbs =
+      (meta.thumbnails as Record<string, { filepath: string; url: string }>) ??
+      {};
+    await Promise.allSettled(
+      Object.values(oldThumbs).map((t) => this.storage.delete(t.filepath))
+    );
+
+    const thumbnails: Record<string, { filepath: string; url: string }> = {};
+    if (width && height) {
+      const dir = path.posix.dirname(filepath);
+      const ext = path.extname(filepath);
+      const base = path.basename(filepath, ext);
+      const sizes = getAllImageSizes();
+      const results = await Promise.allSettled(
+        sizes.map(async (size) => {
+          const buf = await this.resizeImage(editedBuffer, size, width, height);
+          if (!buf) return null;
+          const thumbFilepath = `${dir}/${base}-${size.width}x${size.height}${ext}`;
+          const thumbUrl = await this.storage.save(thumbFilepath, buf);
+          return { name: size.name, filepath: thumbFilepath, url: thumbUrl };
+        })
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value) {
+          thumbnails[r.value.name] = {
+            filepath: r.value.filepath,
+            url: r.value.url,
+          };
+        }
+      }
+    }
+
+    const [updated] = await this.db
+      .update(media)
+      .set({
+        width,
+        height,
+        fileSize: editedBuffer.length,
+        meta: { ...meta, filepath, thumbnails },
+      })
+      .where(
+        this.legacySingleSiteMode
+          ? eq(media.id, id)
+          : and(eq(media.id, id), eq(media.siteId, record.siteId))
+      )
+      .returning();
+
+    await hooks.doAction("edit_media", updated);
+    return updated;
+  }
+
+  /**
    * Delete a media record and its files from storage.
    *
    * Deletes the DB record first (source of truth), then cleans up files.
@@ -536,6 +717,8 @@ export class MediaService {
     const {
       mimeType,
       search,
+      dateFrom,
+      dateTo,
       orderBy = "date",
       order = "desc",
       offset = 0,
@@ -546,7 +729,18 @@ export class MediaService {
     const conditions = [];
     if (!this.legacySingleSiteMode) conditions.push(eq(media.siteId, siteId));
     if (mimeType) conditions.push(eq(media.mimeType, mimeType));
-    if (search) conditions.push(like(media.title, `%${escapeLike(search)}%`));
+    if (search) {
+      const pattern = `%${escapeLike(search)}%`;
+      conditions.push(or(like(media.title, pattern), like(media.filename, pattern)));
+    }
+    if (dateFrom) {
+      const from = dateFrom instanceof Date ? dateFrom : new Date(dateFrom);
+      if (!Number.isNaN(from.getTime())) conditions.push(gte(media.createdAt, from));
+    }
+    if (dateTo) {
+      const to = dateTo instanceof Date ? dateTo : new Date(dateTo);
+      if (!Number.isNaN(to.getTime())) conditions.push(lt(media.createdAt, to));
+    }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 

@@ -30,7 +30,7 @@ export function UserRowActions({ userId, username }: UserRowActionsProps) {
   }
 
   return (
-    <div className="mt-1 flex items-center gap-2 text-xs opacity-0 transition-opacity group-hover:opacity-100">
+    <div className="mt-1 flex items-center gap-2 text-xs opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
       <Link href={`/users/${userId}/edit`} className="text-accent hover:underline">
         Edit
       </Link>

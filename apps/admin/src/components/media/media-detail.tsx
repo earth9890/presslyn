@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { File01Icon } from "hugeicons-react";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { MediaImageEditor } from "./media-image-editor";
 
 export interface MediaItem {
   id: number;
@@ -80,21 +81,20 @@ export function MediaDetail({ media }: { media: MediaItem }) {
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_22rem]">
-      {/* Preview */}
-      <div className="overflow-hidden rounded-lg border border-border bg-surface">
-        {isImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={media.url}
-            alt={media.alt || media.title || media.filename}
-            className="max-h-[70vh] w-full bg-surface-raised object-contain"
-          />
-        ) : (
+      {/* Preview + image editor */}
+      {isImage ? (
+        <MediaImageEditor
+          mediaId={media.id}
+          url={media.url}
+          alt={media.alt || media.title || media.filename}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
           <div className="flex aspect-video items-center justify-center bg-surface-raised">
             <File01Icon size={48} className="text-text-muted" />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Metadata + actions */}
       <div className="space-y-4">

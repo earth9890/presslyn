@@ -51,7 +51,7 @@ interface CommentRow {
 }
 
 function createMockDb(initialPosts: PostRow[], initialComments: CommentRow[]) {
-  let postsRows = initialPosts.map((row) => ({ ...row }));
+  const postsRows = initialPosts.map((row) => ({ ...row }));
   let commentsRows = initialComments.map((row) => ({ ...row }));
 
   const queryResult = <T,>(result: T[]) => ({

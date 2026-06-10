@@ -11,6 +11,8 @@ export interface CacheStore {
   delete(key: string): Promise<boolean>;
   /** Remove all keys under a prefix (namespace flush). */
   flushPrefix(prefix: string): Promise<void>;
+  /** Release any underlying resources (e.g. a Redis connection). Optional. */
+  close?(): Promise<void>;
 }
 
 interface MemoryEntry {

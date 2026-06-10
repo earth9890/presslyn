@@ -37,6 +37,12 @@ export class RedisStore implements CacheStore {
   }
 
   async set(key: string, value: unknown, ttlSeconds = 0): Promise<void> {
+    // JSON.stringify(undefined) === undefined (not a string), which would make
+    // redis.set throw. Treat caching `undefined` as a delete.
+    if (value === undefined) {
+      await this.delete(key);
+      return;
+    }
     const redis = await this.client();
     const payload = JSON.stringify(value);
     if (ttlSeconds > 0) {
@@ -74,5 +80,13 @@ export class RedisStore implements CacheStore {
         await redis.del(...unprefixed);
       }
     } while (cursor !== "0");
+  }
+
+  /** Close the underlying Redis connection (if one was opened). */
+  async close(): Promise<void> {
+    if (!this.clientPromise) return;
+    const redis = await this.clientPromise;
+    this.clientPromise = null;
+    await redis.quit();
   }
 }

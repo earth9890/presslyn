@@ -5,7 +5,7 @@
  * CRUD for posts, pages, and custom post types.
  */
 
-import { eq, and, desc, asc, like, sql, inArray, isNull } from "drizzle-orm";
+import { eq, and, or, desc, asc, like, sql, inArray, isNull } from "drizzle-orm";
 import { type Database } from "@presslyn/database";
 import {
   posts,
@@ -26,6 +26,7 @@ import {
   PostQuerySchema,
 } from "../schemas.js";
 import { escapeLike, generateSlug } from "../utils.js";
+import { sanitizeContentHtml } from "../formatting/index.js";
 import { getPostType } from "./post-types.js";
 
 // ─── Types ─────────────────────────────────────────────────
@@ -159,8 +160,13 @@ export class ContentService {
     return this.getPrimarySiteId();
   }
 
-  private selectLegacyPosts() {
-    return this.db.select({
+  /**
+   * Explicit post columns with a synthetic `siteId` of 1 — used in legacy
+   * single-site mode where the `posts.site_id` column doesn't exist. Selecting
+   * the whole `posts` object would emit `posts.site_id` and fail.
+   */
+  private legacyPostColumns() {
+    return {
       id: posts.id,
       siteId: sql<number>`1`,
       authorId: posts.authorId,
@@ -177,7 +183,11 @@ export class ContentService {
       publishedAt: posts.publishedAt,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
-    });
+    };
+  }
+
+  private selectLegacyPosts() {
+    return this.db.select(this.legacyPostColumns());
   }
 
   // ─── Create ────────────────────────────────────────────
@@ -197,12 +207,14 @@ export class ContentService {
     const slug = parsed.slug || generateSlug(parsed.title);
     const uniqueSlug = await this.ensureUniqueSlug(slug, postType, siteId);
 
-    // Apply filters to content before saving
+    // Apply filters to content before saving, then sanitize LAST so neither
+    // user input nor a filter can persist unsafe HTML (stored-XSS boundary).
     const title = await hooks.applyFilters("the_title", parsed.title);
-    const content = await hooks.applyFilters(
+    const filteredContent = await hooks.applyFilters(
       "the_content",
       parsed.content ?? ""
     );
+    const content = sanitizeContentHtml(String(filteredContent));
 
     const status: PostStatus = parsed.status ?? "draft";
 
@@ -347,7 +359,15 @@ export class ContentService {
     if (authorId) conditions.push(eq(posts.authorId, authorId));
     if (termId) conditions.push(eq(postTerms.termId, termId));
     if (slug) conditions.push(eq(posts.slug, slug));
-    if (search) conditions.push(like(posts.title, `%${escapeLike(search)}%`));
+    if (search) {
+      const pattern = `%${escapeLike(search)}%`;
+      const searchCondition = or(
+        like(posts.title, pattern),
+        like(posts.content, pattern),
+        like(posts.excerpt, pattern)
+      );
+      if (searchCondition) conditions.push(searchCondition);
+    }
     if (parentId !== undefined) {
       if (parentId === null) {
         conditions.push(isNull(posts.parentId));
@@ -375,11 +395,17 @@ export class ContentService {
 
     const orderFn = order === "desc" ? desc : asc;
 
+    // In legacy single-site mode the `posts.site_id` column doesn't exist, so
+    // select explicit columns rather than the whole `posts` object.
+    const postSelection = this.legacySingleSiteMode
+      ? { post: this.legacyPostColumns() }
+      : { post: posts };
+
     let rows;
     let countResult;
     try {
       rows = await this.db
-        .selectDistinct({ post: posts })
+        .selectDistinct(postSelection)
         .from(posts)
         .leftJoin(postTerms, eq(posts.id, postTerms.postId))
         .where(and(...conditions))
@@ -425,7 +451,8 @@ export class ContentService {
       updates.title = await hooks.applyFilters("the_title", parsed.title);
     }
     if (parsed.content !== undefined) {
-      updates.content = await hooks.applyFilters("the_content", parsed.content);
+      const filtered = await hooks.applyFilters("the_content", parsed.content);
+      updates.content = sanitizeContentHtml(String(filtered));
     }
     if (parsed.excerpt !== undefined) updates.excerpt = parsed.excerpt;
     if (parsed.status !== undefined) {
@@ -593,8 +620,21 @@ export class ContentService {
   }
 
   async getPostTerms(postId: number) {
+    // Select explicit term columns (no site_id) so this works on both the
+    // multisite and legacy single-site schemas — callers only need the
+    // taxonomy fields below, not the site scope.
     const rows = await this.db
-      .select({ term: terms })
+      .select({
+        term: {
+          id: terms.id,
+          taxonomyId: terms.taxonomyId,
+          name: terms.name,
+          slug: terms.slug,
+          description: terms.description,
+          parentId: terms.parentId,
+          meta: terms.meta,
+        },
+      })
       .from(postTerms)
       .innerJoin(terms, eq(postTerms.termId, terms.id))
       .where(eq(postTerms.postId, postId));

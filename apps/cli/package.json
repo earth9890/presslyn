@@ -10,7 +10,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@presslyn/api": "workspace:*",
@@ -19,7 +20,9 @@
     "commander": "^13.0.0"
   },
   "devDependencies": {
+    "@presslyn/config-eslint": "workspace:*",
     "@presslyn/config-ts": "workspace:*",
+    "eslint": "^9.0.0",
     "typescript": "^5.7.0"
   }
 }

@@ -16,7 +16,7 @@
  *   has_filter()    → hooks.hasFilter()
  */
 
-type HookCallback = (...args: any[]) => any | Promise<any>;
+type HookCallback = (...args: unknown[]) => unknown;
 
 interface HookEntry {
   callback: HookCallback;
@@ -46,7 +46,7 @@ export class HookSystem {
     this.actions.set(hook, entries);
   }
 
-  async doAction(hook: string, ...args: any[]): Promise<void> {
+  async doAction(hook: string, ...args: unknown[]): Promise<void> {
     const entries = this.actions.get(hook);
     if (!entries) return;
 
@@ -75,13 +75,14 @@ export class HookSystem {
 
   addFilter<T>(
     hook: string,
-    callback: (value: T, ...args: any[]) => T | Promise<T>,
+    callback: (value: T, ...args: unknown[]) => T | Promise<T>,
     priority: number = 10,
     id?: string
   ): void {
     const entries = this.filters.get(hook) ?? [];
     entries.push({
-      callback,
+      // Stored type-erased; applyFilters re-applies the generic on the way out.
+      callback: callback as HookCallback,
       priority,
       id: id ?? this.generateId(),
     });
@@ -89,13 +90,13 @@ export class HookSystem {
     this.filters.set(hook, entries);
   }
 
-  async applyFilters<T>(hook: string, value: T, ...args: any[]): Promise<T> {
+  async applyFilters<T>(hook: string, value: T, ...args: unknown[]): Promise<T> {
     const entries = this.filters.get(hook);
     if (!entries) return value;
 
     let result = value;
     for (const entry of entries) {
-      result = await entry.callback(result, ...args);
+      result = (await entry.callback(result, ...args)) as T;
     }
     return result;
   }

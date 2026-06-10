@@ -5,6 +5,56 @@
  * Output escaping, slug generation, HTML sanitization.
  */
 
+import sanitizeHtmlLib from "sanitize-html";
+
+/**
+ * Sanitize user-authored rich-text/HTML content against an allowlist
+ * (WordPress `wp_kses` equivalent). This is the security boundary for post and
+ * page bodies: it strips <script>/<style>/<iframe>, event-handler attributes,
+ * and javascript:/data: URLs while preserving the formatting the block editor
+ * produces. Apply on the WRITE path so stored content is always safe to render.
+ */
+export function sanitizeContentHtml(html: string): string {
+  if (!html) return "";
+  return sanitizeHtmlLib(html, {
+    allowedTags: [
+      "p", "br", "hr", "span", "div",
+      "h1", "h2", "h3", "h4", "h5", "h6",
+      "strong", "b", "em", "i", "u", "s", "strike", "sub", "sup", "mark", "small",
+      "a", "ul", "ol", "li", "blockquote", "cite", "q",
+      "pre", "code", "kbd", "samp",
+      "img", "figure", "figcaption",
+      "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col",
+      "dl", "dt", "dd", "abbr", "time",
+    ],
+    allowedAttributes: {
+      a: ["href", "title", "target", "rel"],
+      img: ["src", "alt", "title", "width", "height", "loading"],
+      "*": ["class", "id"],
+      td: ["colspan", "rowspan"],
+      th: ["colspan", "rowspan", "scope"],
+      col: ["span"],
+      time: ["datetime"],
+      abbr: ["title"],
+    },
+    // Only safe URL schemes; blocks javascript:, vbscript:, etc. data: allowed
+    // for images only (inline images), not for links.
+    allowedSchemes: ["http", "https", "mailto", "tel"],
+    allowedSchemesByTag: { img: ["http", "https", "data"] },
+    allowProtocolRelative: false,
+    // Force safe rel on links that open a new tab.
+    transformTags: {
+      a: (tagName, attribs) => {
+        if (attribs.target === "_blank") {
+          attribs.rel = "noopener noreferrer";
+        }
+        return { tagName, attribs };
+      },
+    },
+    disallowedTagsMode: "discard",
+  });
+}
+
 /** Escape HTML entities for safe output. Equivalent to esc_html(). */
 export function escHtml(str: string): string {
   return str
@@ -50,7 +100,7 @@ export function sanitizeTitle(title: string): string {
 /** Sanitize an email address. Equivalent to sanitize_email(). */
 export function sanitizeEmail(email: string): string {
   const cleaned = email.trim().toLowerCase();
-  const regex = /^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$/;
+  const regex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
   return regex.test(cleaned) ? cleaned : "";
 }
 
@@ -70,7 +120,7 @@ export function autop(text: string): string {
   if (!text.trim()) return "";
 
   // Normalize line endings
-  let output = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const output = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
   // Split on double newlines
   const paragraphs = output.split(/\n\s*\n/).filter((p) => p.trim());

@@ -23,18 +23,17 @@ export default function LoginPage() {
         body: JSON.stringify({ login: email, password }),
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
         setError(data?.error ?? "Invalid credentials. Please try again.");
         return;
       }
 
-      const data = await res.json();
-
-      // Save the session token as a cookie
-      document.cookie = `presslyn_session=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-
+      // The server sets an HttpOnly session cookie on success; nothing to
+      // store client-side. Navigate into the admin.
       router.push("/");
+      router.refresh();
     } catch {
       setError("Unable to connect to the server. Please try again.");
     } finally {
@@ -88,12 +87,20 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label
-                htmlFor="login-password"
-                className="mb-1.5 block text-sm font-medium text-text-primary"
-              >
-                Password
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label
+                  htmlFor="login-password"
+                  className="block text-sm font-medium text-text-primary"
+                >
+                  Password
+                </label>
+                <a
+                  href="/forgot-password"
+                  className="text-xs font-medium text-accent hover:underline"
+                >
+                  Forgot password?
+                </a>
+              </div>
               <input
                 id="login-password"
                 type="password"
