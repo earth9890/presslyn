@@ -30,7 +30,7 @@
     "argon2": "^0.44.0",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.0",
-    "zod": "^3.24.0"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@presslyn/config-eslint": "workspace:*",

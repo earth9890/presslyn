@@ -28,7 +28,7 @@
     "hono": "^4.12.21",
     "jsonwebtoken": "^9.0.3",
     "superjson": "^2.2.0",
-    "zod": "^3.24.0"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@presslyn/config-eslint": "workspace:*",
