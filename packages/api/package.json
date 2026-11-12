@@ -20,7 +20,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.13",
+    "@hono/node-server": "^2.1.6",
     "@presslyn/core": "workspace:*",
     "@presslyn/database": "workspace:*",
     "@trpc/server": "^11.0.0",
